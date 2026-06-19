@@ -11,9 +11,11 @@ if (isset($_GET['registered'])) {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $input = trim($_POST['email']);
     $password = $_POST['password'];
-    $selected_role = trim($_POST['login_role'] ?? 'farmer');
+    $selected_role = trim($_POST['login_role'] ?? '');
 
-    if (!empty($input) && !empty($password)) {
+    if (empty($selected_role)) {
+        $message = "❌ Please select a role first.";
+    } elseif (!empty($input) && !empty($password)) {
         try {
             $stmt = $conn->prepare("SELECT id, fullname, username, email, password, role FROM users 
                                     WHERE username = :input OR email = :input LIMIT 1");
@@ -75,6 +77,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .toggle-password:hover svg {
         stroke: #666;
     }
+    .role-note {
+        font-size: 13px;
+        color: #666;
+        margin: 8px 0;
+        text-align: center;
+    }
     </style>
 </head>
 <body class="auth-body background-gradient-theme">
@@ -106,8 +114,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
 
             <div class="role-selection-group grid-two-columns">
+                <!-- REMOVED checked="checked" so nothing is selected by default -->
                 <label class="role-radio-label selector-card">
-                    <input type="radio" name="login_role" value="farmer" checked>
+                    <input type="radio" name="login_role" value="farmer">
                     <span>Farmer</span>
                 </label>
                 <label class="role-radio-label selector-card">
@@ -115,6 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <span>Admin</span>
                 </label>
             </div>
+            <div class="role-note">⚠️ Please select your account type</div>
 
             <div class="remember-me-container checkbox-left-align">
                 <input type="checkbox" id="remember_me" name="remember_me">
