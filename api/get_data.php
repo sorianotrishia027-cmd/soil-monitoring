@@ -1,19 +1,47 @@
 <?php
 header("Content-Type: application/json");
-require_once '../config/db_connect.php';
+include "../config/db_connect.php";
 
+// Generate sample readings (Simulating live data before building the hardware)
+$moisture    = round(rand(20, 80) + (rand(0, 99) / 100), 2);
+$ph_level    = round(rand(45, 75) / 10, 1);
+$temperature = round(rand(22, 35) + (rand(0, 99) / 100), 2);
+$nitrogen    = rand(10, 60);
+$phosphorus  = rand(5, 40);
+$potassium   = rand(15, 70);
+
+// Evaluate custom status code strings based on cooperative rules
+if ($moisture < 30) {
+    $status = "DRY";
+} elseif ($moisture > 60) {
+    $status = "WET";
+} elseif ($ph_level < 5.0) {
+    $status = "ACIDIC";
+} elseif ($ph_level > 7.5) {
+    $status = "ALKALINE";
+} elseif ($temperature < 18) {
+    $status = "COOL";
+} elseif ($temperature > 35) {
+    $status = "HOT";
+} elseif ($nitrogen < 20 || $phosphorus < 10 || $potassium < 15) {
+    $status = "LOW NUTRIENTS";
+} elseif ($nitrogen > 50 || $phosphorus > 30 || $potassium > 50) {
+    $status = "EXCESS NUTRIENTS";
+} else {
+    $status = "OPTIMAL";
+}
+
+// Insert directly into your dynamic data tables
 try {
-    // Queries your explicit sensor_data database table layout
-    $stmt = $conn->prepare("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1");
-    $stmt->execute();
-    $data = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($data) {
-        echo json_encode(["status" => "success", "data" => $data]);
-    } else {
-        echo json_encode(["status" => "empty", "message" => "No sensor logs found."]);
-    }
+    $stmt = $conn->prepare("INSERT INTO sensor_data 
+        (moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$moisture, $ph_level, $temperature, $nitrogen, $phosphorus, $potassium, $status]);
+    
+    // Return latest record back to user interface
+    $latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    echo json_encode($latest);
 } catch (PDOException $e) {
-    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    echo json_encode(["error" => $e->getMessage()]);
 }
 ?>

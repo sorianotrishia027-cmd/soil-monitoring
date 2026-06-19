@@ -1,46 +1,58 @@
-<div class="sub-view-panel-container">
-    <div class="view-panel-header">
-        <h3>Agronomical Management Recommendations</h3>
-    </div>
+<?php
+include "../config/db_connect.php";
 
-    <div class="recommendations-content-card">
-        <h4>Macro-Nutrient Treatment Protocols (N-P-K)</h4>
+// Fetch the absolute latest generated or simulated sensor entry row
+$latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+?>
+<div class="sub-view-panel">
+    <h2>📋 Recommendations</h2>
+    
+    <?php if (!$latest): ?>
+        <p>No data available to generate recommendations.</p>
+    <?php else: ?>
         
-        <div class="npk-treatment-row">
-            <h5>Nitrogen (N) Actions</h5>
-            <?php if ($role === 'farmer'): ?>
-                <p>Apply urea, ammonium sulfate, or organic fertilizers (chicken manure) if readings drop low. Stop application if high to prevent leaf burn.</p>
-            <?php else: ?>
-                <p>Calculate required dosage based on crop type; track improvements and warn against excesses causing lodging.</p>
+        <h3>👨‍🌾 For Farmers</h3>
+        <ul>
+            <?php if ($latest['moisture'] < 30): ?>
+                <li>Water the field immediately to prevent crop stress.</li>
             <?php endif; ?>
-        </div>
-
-        <div class="npk-treatment-row">
-            <h5>Phosphorus (P) Actions</h5>
-            <?php if ($role === 'farmer'): ?>
-                <p>Apply superphosphate or bone meal near roots when low. Reduce inputs if high to monitor for nutrient lock-up.</p>
-            <?php else: ?>
-                <p>Recommend deep soil mixing methods for absorption; advise on crop rotation parameters if high.</p>
+            
+            <?php if ($latest['moisture'] > 60): ?>
+                <li>Stop watering and improve soil drainage.</li>
             <?php endif; ?>
-        </div>
-
-        <div class="npk-treatment-row">
-            <h5>Potassium (K) Actions</h5>
-            <?php if ($role === 'farmer'): ?>
-                <p>Apply muriate of potash or wood ash to bolster disease defense vectors. Reduce input if levels register high.</p>
-            <?php else: ?>
-                <p>Suggest timing fertilizer application cycles directly before flowering/fruiting stages.</p>
+            
+            <?php if ($latest['ph_level'] < 5.0): ?>
+                <li>Apply agricultural lime or dolomite to raise pH.</li>
             <?php endif; ?>
-        </div>
-    </div>
+            
+            <?php if ($latest['ph_level'] > 7.5): ?>
+                <li>Mix compost or well-rotted manure to lower pH.</li>
+            <?php endif; ?>
+            
+            <?php if ($latest['nitrogen'] < 20): ?>
+                <li>Add nitrogen-rich fertilizer (urea, ammonium sulfate).</li>
+            <?php endif; ?>
+            
+            <?php if ($latest['phosphorus'] < 10): ?>
+                <li>Apply phosphate fertilizer to support root growth.</li>
+            <?php endif; ?>
+            
+            <?php if ($latest['potassium'] < 15): ?>
+                <li>Use muriate of potash or wood ash to improve resistance.</li>
+            <?php endif; ?>
+            
+            <?php if ($latest['status'] === "OPTIMAL"): ?>
+                <li>Maintain current irrigation and fertilization schedule.</li>
+            <?php endif; ?>
+        </ul>
 
-    <div class="document-summary-box-sheet" style="margin-top: 30px; background: #f0f4f0; padding: 20px; border-radius: 12px;">
-        <h4>Summary Report Parameters</h4>
-        <p style="font-size: 14px; margin-top: 10px;">
-            <strong>For Farmers:</strong> Use real-time sensor readings to adjust irrigation, fertilization, and soil treatment. Follow the suggested dosage and timing to improve yield and reduce input costs.
-        </p>
-        <p style="font-size: 14px; margin-top: 10px;">
-            <strong>For Administrators:</strong> Analyze historical data to identify field trends, provide technical advice, plan farm activities, and ensure sustainable soil management. Use the system to generate reports and guide farmers toward best agricultural practices.
-        </p>
-    </div>
+        <h3>👔 For Administrators</h3>
+        <ul>
+            <li>Monitor daily readings to spot long-term trends.</li>
+            <li>Guide farmers on correct fertilizer dosages.</li>
+            <li>Generate weekly soil health reports.</li>
+            <li>Send alerts when conditions become critical.</li>
+        </ul>
+
+    <?php endif; ?>
 </div>

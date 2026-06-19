@@ -5,43 +5,47 @@ require_once '../config/db_connect.php';
 $message = "";
 
 if (isset($_GET['registered'])) {
-    $message = "Registration successful! Please login.";
+    $message = "✅ Registration successful! Please login.";
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = trim($_POST['email']);
+    $input = trim($_POST['email']);
     $password = $_POST['password'];
+    $selected_role = trim($_POST['login_role'] ?? 'farmer');
 
-    if (!empty($email) && !empty($password)) {
+    if (!empty($input) && !empty($password)) {
         try {
-            $stmt = $conn->prepare("SELECT * FROM users WHERE email = :email");
-            $stmt->bindParam(':email', $email);
+            $stmt = $conn->prepare("SELECT id, fullname, username, email, password, role FROM users 
+                                    WHERE username = :input OR email = :input LIMIT 1");
+            $stmt->bindParam(':input', $input);
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user) {
-                // Check if plain text matches OR if it matches a standard hashed password string
-                $isPlainMatch = ($password === $user['password']);
-                $isHashMatch = password_verify($password, $user['password']);
+                $passwordVerified = password_verify($password, $user['password']);
 
-                if ($isPlainMatch || $isHashMatch) {
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = $user['role']; 
-                    
-                    header("Location: ../dashboard.php");
-                    exit();
+                if ($passwordVerified) {
+                    if ($selected_role !== $user['role']) {
+                        $message = "❌ Selected role does not match your account.";
+                    } else {
+                        $_SESSION['user_id'] = $user['id'];
+                        $_SESSION['fullname'] = $user['fullname'];
+                        $_SESSION['username'] = $user['username'];
+                        $_SESSION['role'] = $user['role'];
+                        header("Location: ../dashboard.php");
+                        exit;
+                    }
                 } else {
-                    $message = "Invalid email or password.";
+                    $message = "❌ Invalid username/email or password.";
                 }
             } else {
-                $message = "Invalid email or password.";
+                $message = "❌ Invalid username/email or password.";
             }
         } catch(PDOException $e) {
-            $message = "Error: " . $e->getMessage();
+            $message = "⚠️ System error: " . $e->getMessage();
         }
     } else {
-        $message = "Please enter both email and password.";
+        $message = "⚠️ Please fill in both fields.";
     }
 }
 ?>
@@ -54,9 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="auth-body background-gradient-theme">
-
     <div class="auth-container premium-login-card">
-        
         <div class="auth-logo login-logo-centered">
             <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.48 2 2 6.48 2 12C2 16.5 4.5 20.2 8.2 21.4C8.1 20.6 8 19.7 8 18.8C8 14.3 11.2 10.5 15.5 9.7C14.4 8.1 12.6 7 10.5 7C7.5 7 5 9.5 5 12.5C5 14.7 6.3 16.6 8.2 17.5C8.1 16.9 8 16.2 8 15.5C8 11.9 10.9 9 14.5 9C15.8 9 17.1 9.4 18.1 10.1C18.9 7.7 18.3 4.9 16.2 3.2C15 2.3 13.5 1.8 12 2ZM14.5 11C12 11 10 13 10 15.5C10 18 12 20 14.5 20C17 20 19 18 19 15.5C19 13 17 11 14.5 11Z" fill="#1b5e20"/>
@@ -64,25 +66,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <h1 class="brand-title">cooperative</h1>
         </div>
 
-        <?php if(!empty($message)) echo "<p class='error'>$message</p>"; ?>
+        <?php if(!empty($message)) echo "<p class='".(strpos($message, '✅') !== false ? "success" : "error")."'>$message</p>"; ?>
         
         <form action="login.php" method="POST" class="mockup-form">
-            
             <div class="input-wrapper-login active-focus-border">
                 <span class="field-icon">👤</span>
-                <input type="email" name="email" placeholder="Username/Email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                <input type="text" name="email" placeholder="Username or Email" value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>" required>
             </div>
-            
-            <div class="input-wrapper-login">
-                <span class="field-icon">🔒</span>
-                <input type="text" placeholder="Enter your username or email" disabled style="cursor: default; opacity: 0.5;">
-            </div>
-            
             <div class="input-wrapper-login">
                 <span class="field-icon">🔑</span>
                 <input type="password" name="password" placeholder="Enter your password" required>
             </div>
-            
+
             <div class="role-selection-group grid-two-columns">
                 <label class="role-radio-label selector-card">
                     <input type="radio" name="login_role" value="farmer" checked>
@@ -106,6 +101,5 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             Don't have an account? <a href="register.php">Register here</a>
         </div>
     </div>
-
 </body>
 </html>

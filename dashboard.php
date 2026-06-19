@@ -2,7 +2,7 @@
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header("Location: auth/login.php");
-    exit();
+    exit;
 }
 
 require_once 'config/db_connect.php';
@@ -28,22 +28,22 @@ $page = $_GET['page'] ?? 'home';
             
             <ul class="sidebar-menu-links">
                 <li>
-                    <a href="dashboard.php?page=home" class="menu-link-item <?php echo $page === 'home' ? 'active' : ''; ?>">
+                    <a href="dashboard.php?page=home" class="menu-link-item <?= $page === 'home' ? 'active' : '' ?>">
                         <span class="nav-text">Home</span>
                     </a>
                 </li>
                 <li>
-                    <a href="dashboard.php?page=soil" class="menu-link-item <?php echo $page === 'soil' ? 'active' : ''; ?>">
+                    <a href="dashboard.php?page=soil" class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>">
                         <span class="nav-text">Soil Data</span>
                     </a>
                 </li>
                 <li>
-                    <a href="dashboard.php?page=alerts" class="menu-link-item <?php echo $page === 'alerts' ? 'active' : ''; ?>">
+                    <a href="dashboard.php?page=alerts" class="menu-link-item <?= $page === 'alerts' ? 'active' : '' ?>">
                         <span class="nav-text">Alerts</span>
                     </a>
                 </li>
                 <li>
-                    <a href="dashboard.php?page=recommendations" class="menu-link-item <?php echo $page === 'recommendations' ? 'active' : ''; ?>">
+                    <a href="dashboard.php?page=recommendations" class="menu-link-item <?= $page === 'recommendations' ? 'active' : '' ?>">
                         <span class="nav-text">Recommendations</span>
                     </a>
                 </li>
@@ -57,11 +57,10 @@ $page = $_GET['page'] ?? 'home';
         </nav>
 
         <main class="main-dashboard-canvas">
-            
             <header class="dashboard-canvas-header">
                 <h2>Sto Cristo Concepcion Farmers Agriculture Cooperative</h2>
                 <div class="header-action-widgets">
-                    <span class="user-badge"><?php echo htmlspecialchars($_SESSION['username']); ?> (<?php echo ucfirst($role); ?>)</span>
+                    <span class="user-badge"><?= htmlspecialchars($_SESSION['username']) ?> (<?= ucfirst($role) ?>)</span>
                 </div>
             </header>
 
@@ -84,9 +83,9 @@ $page = $_GET['page'] ?? 'home';
                     }
                 ?>
             </div>
-
         </main>
     </div>
 
+    <script src="js/script.js"></script>
 </body>
 </html>

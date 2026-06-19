@@ -1,5 +1,6 @@
 <?php
-// Ensure session role is accessible (default to farmer if not set)
+include "../config/db_connect.php";
+$latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 $role = $_SESSION['role'] ?? 'farmer';
 ?>
 <div class="home-view-grid">
@@ -7,49 +8,48 @@ $role = $_SESSION['role'] ?? 'farmer';
     <div class="summary-telemetry-strip">
         <div class="telemetry-chip">
             <span class="chip-label">Soil Moisture:</span>
-            <span class="chip-val">65% <span class="status-indicator-dot green">●</span></span>
+            <span class="chip-val"><?= $latest ? htmlspecialchars($latest['moisture']) . '%' : '--' ?></span>
         </div>
         <div class="telemetry-chip">
             <span class="chip-label">pH Level:</span>
-            <span class="chip-val">6.2 <span class="status-indicator-dot green">●</span></span>
+            <span class="chip-val"><?= $latest ? htmlspecialchars($latest['ph_level']) : '--' ?></span>
         </div>
         <div class="telemetry-chip">
             <span class="chip-label">Temperature:</span>
-            <span class="chip-val">28°C <span class="status-indicator-dot green">●</span></span>
+            <span class="chip-val"><?= $latest ? htmlspecialchars($latest['temperature']) . '°C' : '--' ?></span>
         </div>
         <div class="telemetry-chip">
             <span class="chip-label">System Mode:</span>
-            <span class="chip-val sub-text-alert"><?php echo ucfirst($role); ?> Portal</span>
+            <span class="chip-val sub-text-alert"><?= ucfirst($role) ?> Portal</span>
         </div>
     </div>
 
-    <!-- Macro-Nutrient Highlight Card -->
+    <!-- NPK Nutrient Card -->
     <div class="npk-hero-card">
         <h3>Current Nutrient Composition</h3>
-        <h1>NPK: 4-2-3 (mg/kg)</h1>
+        <h1>NPK: <?= $latest ? htmlspecialchars($latest['nitrogen']) . ' / ' . htmlspecialchars($latest['phosphorus']) . ' / ' . htmlspecialchars($latest['potassium']) : '-- -- --' ?></h1>
         <div class="badge-row">
-            <span class="status-pill optimal-green">Soil Conditions Stable</span>
+            <span class="status-pill <?= $latest ? ($latest['status'] === 'OPTIMAL' ? 'optimal-green' : 'warning-red') : '' ?>"
+                  style="<?= !$latest ? 'background: #e0e0e0; color: #666;' : '' ?>">
+                <?= $latest ? htmlspecialchars($latest['status']) : 'No Data' ?>
+            </span>
         </div>
     </div>
 
-    <!-- Live Alerts and Chart Analytics Mapping -->
+    <!-- Status & Chart -->
     <div class="insights-dashboard-split-row">
         <div class="action-alert-panel-card">
-            <h3>Soil Status: Wet / Saturated</h3>
-            <h2>Monitor Drainage</h2>
+            <h3>Soil Status</h3>
+            <h2><?= $latest ? htmlspecialchars($latest['status']) : 'Awaiting Streams' ?></h2>
             
-            <div class="nested-sub-recommends-box">
-                <span class="muted-title">RECOMMENDED ACTION</span>
-                <?php if ($role === 'farmer'): ?>
-                    <p>Stop watering; improve soil drainage; avoid tilling to prevent compaction.</p>
-                <?php else: ?>
-                    <p>Advise on drainage solutions; monitor for risk of root rot or fungal diseases.</p>
-                <?php endif; ?>
+            <div class="nested-sub-recommends-box" style="border-left-color: <?= $latest ? '#4caf50' : '#ccd4cc' ?>;">
+                <span class="muted-title">STATUS</span>
+                <p><?= $latest ? 'Last updated: ' . date('M j, g:i A', strtotime($latest['created_at'])) : 'System is ready. Awaiting data inputs.' ?></p>
             </div>
         </div>
 
         <div class="analytical-chart-card">
-            <h3>Moisture Trend (Last 7 Days)</h3>
+            <h3>Moisture Trend</h3>
             <div class="canvas-chart-wrapper">
                 <canvas id="moistureTrendChart"></canvas>
             </div>
@@ -58,21 +58,17 @@ $role = $_SESSION['role'] ?? 'farmer';
 </div>
 
 <script>
-    // Self-correcting chart implementation for real-time scale visibility
     const ctx = document.getElementById('moistureTrendChart').getContext('2d');
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
             datasets: [{
-                label: 'Moisture level Data Stream (%)',
-                data: [58, 60, 62, 61, 64, 63, 65], // Mapped to logical percentage metrics
+                label: 'Moisture Level (%)',
+                data: [],
                 borderColor: '#0b8a47',
-                backgroundColor: 'rgba(11, 138, 71, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4
+                borderDash: [5, 5],
+                fill: false
             }]
         },
         options: {

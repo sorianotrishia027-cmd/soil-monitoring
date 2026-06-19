@@ -246,7 +246,7 @@ body {
 
 .dashboard-layout-wrapper {
     background-color: #f4f6f4;
-    border: none; /* Changed from 12px solid #111111 to remove laptop border */
+    border: none; 
     border-radius: 32px;
     display: flex;
     max-width: 1200px;
@@ -371,6 +371,7 @@ body {
     font-size: 13px;
     font-weight: 600;
 }
+
 
 /* ==========================================================================
    DYNAMIC CORE SUB-VIEW ROUTER TEMPLATES (Home, Soil, Alerts, Recomms)
@@ -561,16 +562,46 @@ body {
 /* Feedback Status Styles */
 .error { color: #d32f2f; font-weight: 500; margin-bottom: 15px; font-size: 14px; }
 
+
+/* ==========================================================================
+   DYNAMIC COMPONENT INHERITANCE RULES (Alert Banners & Sub-Views)
+   ========================================================================== */
+.sub-view-panel {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 12px 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border-left: 5px solid;
+}
+.alert.success { background: #e8f5e9; border-color: #2e7d32; color: #1b5e20; }
+.alert.warning { background: #fff8e1; border-color: #f57c00; color: #e65100; }
+.alert.danger  { background: #fdecea; border-color: #d32f2f; color: #b71c1c; }
+.alert.info    { background: #e3f2fd; border-color: #1976d2; color: #0d47a1; }
+
+
 /* ==========================================================================
    FLUID RESPONSIVE BREAKDOWN SYSTEM MEDIA TRIGGERS
    ========================================================================== */
+@media (max-width: 992px) {
+    .insights-dashboard-split-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
     .dashboard-body-frame {
         padding: 0;
     }
     .dashboard-layout-wrapper {
         flex-direction: column;
-        border: 12px solid #111111; /* Adds the phone border ONLY on mobile viewport sizes */
+        border: 12px solid #111111; /* Mobile Frame Outline Isolation Boundary */
         border-radius: 24px;
         min-height: 100vh;
     }
