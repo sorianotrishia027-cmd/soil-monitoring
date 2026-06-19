@@ -3,9 +3,8 @@ header("Content-Type: application/json");
 require_once '../config/db_connect.php';
 
 try {
-    // Fetch the latest entry from your soil metrics table
-    // Adjust 'soil_data' and 'created_at' to match your actual database schema
-    $stmt = $conn->prepare("SELECT * FROM soil_data ORDER BY id DESC LIMIT 1");
+    // Queries your explicit sensor_data database table layout
+    $stmt = $conn->prepare("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1");
     $stmt->execute();
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
 

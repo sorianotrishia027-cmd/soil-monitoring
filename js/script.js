@@ -6,10 +6,28 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(response => response.json())
             .then(res => {
                 if (res.status === "success") {
-                    // Update this parsing block based on your database column names 
-                    // e.g., res.data.moisture, res.data.temperature, etc.
+                    const data = res.data;
+                    
+                    // Creates nice responsive metric elements instead of raw unparsed JSON
                     displayDiv.innerHTML = `
-                        <pre>${JSON.stringify(res.data, null, 2)}</pre>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <h3>💧 Soil Moisture</h3>
+                                <p class="metric-value">${data.moisture ?? 'N/A'}%</p>
+                            </div>
+                            <div class="metric-card">
+                                <h3>🌡️ Temperature</h3>
+                                <p class="metric-value">${data.temperature ?? 'N/A'}°C</p>
+                            </div>
+                            <div class="metric-card">
+                                <h3>🧪 pH Level</h3>
+                                <p class="metric-value">${data.ph ?? 'N/A'}</p>
+                            </div>
+                            <div class="metric-card">
+                                <h3>📊 Last Sensor Log</h3>
+                                <p class="metric-ts">${data.created_at ?? 'Just now'}</p>
+                            </div>
+                        </div>
                     `;
                 } else {
                     displayDiv.innerHTML = `<p>${res.message || 'No records available.'}</p>`;
@@ -21,7 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
     }
 
-    // Run once at start, then pull updates every 5 seconds
     fetchSoilData();
-    setInterval(fetchSoilData, 5000);
+    setInterval(fetchSoilData, 5000); // Check for new sensor logs every 5 seconds
 });
