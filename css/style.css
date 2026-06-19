@@ -246,7 +246,7 @@ body {
 
 .dashboard-layout-wrapper {
     background-color: #f4f6f4;
-    border: 12px solid #111111;
+    border: none; /* Changed from 12px solid #111111 to remove laptop border */
     border-radius: 32px;
     display: flex;
     max-width: 1200px;
@@ -564,20 +564,14 @@ body {
 /* ==========================================================================
    FLUID RESPONSIVE BREAKDOWN SYSTEM MEDIA TRIGGERS
    ========================================================================== */
-@media (max-width: 992px) {
-    .insights-dashboard-split-row {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 768px) {
     .dashboard-body-frame {
         padding: 0;
     }
     .dashboard-layout-wrapper {
         flex-direction: column;
-        border: none;
-        border-radius: 0;
+        border: 12px solid #111111; /* Adds the phone border ONLY on mobile viewport sizes */
+        border-radius: 24px;
         min-height: 100vh;
     }
     .sidebar-nav-panel {
@@ -598,7 +592,7 @@ body {
         font-size: 13px;
     }
     .nav-text {
-        display: none; /* Collapses menu strings on tight mobile screens */
+        display: none; 
     }
     .main-dashboard-canvas {
         padding: 20px;
@@ -607,7 +601,6 @@ body {
         font-size: 18px;
     }
     
-    /* Registration & login screen device constraints adjustments */
     .mobile-phone-frame {
         border: none !important;
         box-shadow: none !important;
