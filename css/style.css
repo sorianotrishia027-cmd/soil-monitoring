@@ -1,155 +1,617 @@
 :root {
-    --primary-color: #2e7d32;     /* Forest Green */
-    --secondary-color: #81c784;   /* Light Sage Green */
-    --background: #f1f8e9;        /* Pale green leaf background */
+    --primary-color: #0b8a47;       /* Rich Green Accent Matching Mockups */
+    --primary-hover: #1b5e20;
+    --bg-gradient-start: #2fa149;   /* Vibrant Green for Auth Background Gradient */
+    --bg-gradient-end: #89cc51;     /* Soft Light Green for Auth Background Gradient */
+    --app-background: #e4ebe4;      /* High-fidelity light green-grey canvas tint */
     --card-bg: #ffffff;
-    --text-color: #2e3d30;
+    --text-color: #111111;
+    --text-muted: #555555;
+    --border-color: #ccd4cc;
+    --sidebar-width: 240px;
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--background);
-    color: var(--text-color);
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-/* Auth Pages Styling */
-.auth-container {
-    width: 100%;
-    max-width: 400px;
-    margin: 100px auto;
-    background: var(--card-bg);
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    border-top: 5px solid var(--primary-color);
-    text-align: center;
-}
-
-.auth-container h2 {
-    margin-bottom: 25px;
-    color: var(--primary-color);
-}
-
-.auth-container input, .auth-container select {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 15px;
-    border: 1px solid #ccd6cc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 14px;
-    background-color: #fafdfa;
-}
-
-.auth-container button {
-    width: 100%;
-    padding: 12px;
-    background-color: var(--primary-color);
-    border: none;
-    color: white;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.auth-container button:hover {
-    background-color: #1b5e20;
-}
-
-/* Dashboard Layout */
-.dashboard-container {
-    width: 100%;
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--app-background);
+    color: var(--text-color);
     min-height: 100vh;
 }
 
-header {
-    background-color: var(--card-bg);
-    padding: 15px 30px;
+/* ==========================================================================
+   AUTHENTICATION PAGES STYLING (Login & Register Form Layouts)
+   ========================================================================== */
+.auth-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Linear dual-tone theme variant for login page background canvas */
+.background-gradient-theme {
+    background: linear-gradient(135deg, var(--bg-gradient-start) 0%, #68b94b 50%, var(--bg-gradient-end) 100%) !important;
+}
+
+/* Smartphone Outline Frame Mockup Wrapper */
+.mobile-phone-frame {
+    background: #ffffff;
+    border: 12px solid #1a1a1a;
+    border-radius: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    padding: 10px;
+}
+
+.auth-container {
+    width: 100%;
+    background: #f0f2f0; /* Default neutral background block form */
+    padding: 35px 25px;
+    border-radius: 20px;
+    text-align: center;
+}
+
+.mobile-nested-container {
+    max-width: 100% !important;
+    box-shadow: none !important;
+    padding: 20px 15px !important;
+    background: transparent !important;
+}
+
+.premium-login-card {
+    background: #f0f2f0 !important;
+    border-radius: 24px !important;
+    padding: 45px 35px !important;
+    max-width: 440px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Customized Cooperative Branding Area */
+.auth-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 25px;
+}
+
+.login-logo-centered {
+    justify-content: center;
+    margin-bottom: 35px;
+}
+
+.brand-title {
+    font-size: 22px !important;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #111111 !important;
+    text-transform: lowercase;
+}
+
+.mockup-headline {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.mockup-headline h2 {
+    font-size: 20px;
+    font-weight: 800;
+    color: #111111;
+    margin-bottom: 4px;
+}
+
+.mockup-headline p {
+    font-size: 15px;
+    font-weight: 600;
+    color: #444444;
+    line-height: 1.3;
+}
+
+/* Clean Icon Wrapper Input Form Controls */
+.input-wrapper, .input-wrapper-login {
+    display: flex;
+    align-items: center;
+    background: #e4ebe4;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    padding: 0 15px;
+}
+
+.input-wrapper-login .field-icon {
+    font-size: 16px;
+    color: #666666;
+    margin-right: 10px;
+}
+
+.input-wrapper input, .input-wrapper-login input {
+    width: 100%;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 14px 0 !important;
+    font-size: 14px;
+    color: var(--text-color);
+    outline: none;
+}
+
+/* Active Highlight Focus Field State */
+.active-focus-border, .input-wrapper.high-contrast-border {
+    border: 1.5px solid var(--primary-color) !important;
+    background: #ffffff !important;
+}
+
+/* Grid Role Selection Option Cards */
+.role-selection-group {
+    margin-bottom: 20px;
+}
+
+.grid-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 5px;
+}
+
+.selector-card {
+    background: #e4ebe4;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.selector-card input[type="radio"] {
+    accent-color: var(--primary-color);
+    width: auto;
+}
+
+/* Checkbox alignment options banner row */
+.remember-me-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    margin-bottom: 25px;
+    color: #333333;
+    font-weight: 500;
+}
+
+.checkbox-left-align {
+    justify-content: flex-start;
+}
+
+.remember-me-container input[type="checkbox"] {
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+
+/* Action Button Interactivity States */
+.mockup-register-btn, .mockup-login-btn {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--primary-color) !important;
+    border: none;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(11, 138, 71, 0.2);
+    transition: all 0.2s ease;
+}
+
+.mockup-register-btn:hover, .mockup-login-btn:hover {
+    background-color: var(--primary-hover) !important;
+    transform: translateY(-1px);
+}
+
+.auth-footer-links {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.layout-top-spacing {
+    margin-top: 30px;
+}
+
+.auth-footer-links a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+
+/* ==========================================================================
+   MAIN DASHBOARD CONTROL CENTER ARCHITECTURE (Sticky Side Navigation)
+   ========================================================================== */
+.dashboard-body-frame {
+    background: linear-gradient(135deg, #a3e2a3 0%, #ffffff 100%);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.dashboard-layout-wrapper {
+    background-color: #f4f6f4;
+    border: 12px solid #111111;
+    border-radius: 32px;
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Elegant Left Dashboard Sidebar Panel */
+.sidebar-nav-panel {
+    background-color: #ffffff;
+    width: var(--sidebar-width);
+    border-right: 1px solid #e0e6e0;
+    display: flex;
+    flex-direction: column;
+    padding: 25px 15px;
+    flex-shrink: 0;
+}
+
+.sidebar-brand-header {
+    margin-bottom: 35px;
+    padding-left: 10px;
+}
+
+.circular-logo-icon {
+    font-size: 28px;
+    background: #e2f0e2;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.sidebar-menu-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
+.menu-link-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    color: #555555;
+    text-decoration: none;
+    font-weight: 600;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.menu-link-item:hover {
+    background-color: #f0f4f0;
+    color: var(--primary-color);
+}
+
+.menu-link-item.active {
+    background-color: #4caf50 !important;
+    color: #ffffff !important;
+}
+
+.sidebar-bottom-action {
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    padding-top: 15px;
+}
+
+.logout-link-style {
+    color: #d32f2f;
+    background-color: #ffebee;
+}
+
+
+/* ==========================================================================
+   PRIMARY DATA VIEW CANVAS REGIONS
+   ========================================================================== */
+.main-dashboard-canvas {
+    flex-grow: 1;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.dashboard-canvas-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    border-bottom: 3px solid var(--primary-color);
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e2e8e2;
+    padding-bottom: 15px;
 }
 
-header h1 {
-    margin: 0;
-    font-size: 24px;
-    color: var(--primary-color);
+.dashboard-canvas-header h2 {
+    font-size: 22px;
+    font-weight: 700;
 }
 
-.user-profile {
+.header-action-widgets {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
 }
 
-.logout-btn {
-    padding: 8px 15px;
-    background: #c62828;
-    color: white;
-    text-decoration: none;
-    border-radius: 4px;
+.widget-icon {
+    font-size: 18px;
+    cursor: pointer;
+    background: #ffffff;
+    padding: 8px;
+    border-radius: 50%;
+    border: 1px solid #d0d7d0;
+}
+
+.user-badge {
+    background: #e2e8e2;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   DYNAMIC CORE SUB-VIEW ROUTER TEMPLATES (Home, Soil, Alerts, Recomms)
+   ========================================================================== */
+.sub-view-panel-container {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+}
+
+.view-panel-header {
+    margin-bottom: 25px;
+}
+
+.view-panel-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.view-panel-header p {
     font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* Home Aggregated Metrics View Elements Layout */
+.summary-telemetry-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.telemetry-chip {
+    background: #ffffff;
+    padding: 16px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chip-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.chip-val {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.status-indicator-dot.green {
+    color: #4caf50;
+}
+
+/* Giant Highlight Hero Block Section */
+.npk-hero-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+
+.npk-hero-card h1 {
+    font-size: 42px;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.badge-row {
+    display: flex;
+    gap: 10px;
+}
+
+.status-pill {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
     font-weight: bold;
 }
 
-.logout-btn:hover {
-    background: #b71c1c;
+.optimal-green { background: #e8f5e9; color: #2e7d32; }
+.warning-red { background: #ffebee; color: #c62828; }
+
+/* Analytical Splitting Data Columns Grid Layout */
+.insights-dashboard-split-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
 }
 
-main {
-    max-width: 1200px;
-    margin: 40px auto;
-    padding: 0 20px;
-}
-
-.card {
-    background: var(--card-bg);
+.action-alert-panel-card, .analytical-chart-card {
+    background: #ffffff;
+    border-radius: 20px;
     padding: 25px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
 }
 
-/* Telemetry Grid Layout */
-.metrics-grid {
+.action-alert-panel-card h3 { font-size: 15px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+.action-alert-panel-card h2 { font-size: 28px; font-weight: 800; margin-bottom: 20px; }
+
+.nested-sub-recommends-box {
+    background: #f9f9f9;
+    border-left: 4px solid #4caf50;
+    padding: 12px;
+    border-radius: 4px;
+}
+
+.nested-sub-recommends-box .muted-title {
+    font-size: 11px;
+    font-weight: bold;
+    color: #999999;
+}
+
+.nested-sub-recommends-box p {
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+/* Chart Canvas Area Wrapper sizing constraints */
+.canvas-chart-wrapper {
+    position: relative;
+    height: 180px;
+    width: 100%;
+    margin-top: 15px;
+}
+
+/* Soil Metrics Component Grid Layouts */
+.telemetry-detailed-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 20px;
-    margin-top: 20px;
 }
 
-.metric-card {
-    background: #fafdfa;
-    border: 1px solid #ccd6cc;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+.data-metric-row-card {
+    background: #f9f9f9;
+    border: 1px solid #e0e6e0;
+    border-radius: 16px;
+    padding: 25px;
 }
 
-.metric-card h3 {
-    margin: 0 0 10px 0;
-    font-size: 16px;
-    color: var(--primary-color);
-}
-
-.metric-value {
-    font-size: 28px;
-    font-weight: bold;
-    margin: 0;
-    color: #1b5e20;
-}
-
-.metric-ts {
+.data-metric-row-card h4 {
     font-size: 14px;
-    color: #666;
-    margin: 10px 0 0 0;
+    color: var(--text-muted);
+    margin-bottom: 10px;
 }
 
-.error { color: #d32f2f; font-weight: bold; }
-.info { color: #2e7d32; font-weight: bold; }
+.massive-metric-text {
+    font-size: 36px;
+    font-weight: 700;
+}
+
+.item-highlighted-green {
+    background: var(--primary-color) !important;
+    color: #ffffff !important;
+}
+
+.item-highlighted-green h4 {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Custom Warning Event Strips */
+.notification-event-strip {
+    background: #f9f9f9;
+    padding: 16px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
+
+.status-border-green { border-left: 4px solid #2e7d32; }
+.status-border-admin { border-left: 4px solid #1565c0; }
+
+.action-alert-callout-box {
+    background-color: #e8f5e9;
+    padding: 14px;
+    border-radius: 8px;
+    color: #2e7d32;
+    font-weight: 600;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+/* Feedback Status Styles */
+.error { color: #d32f2f; font-weight: 500; margin-bottom: 15px; font-size: 14px; }
+
+/* ==========================================================================
+   FLUID RESPONSIVE BREAKDOWN SYSTEM MEDIA TRIGGERS
+   ========================================================================== */
+@media (max-width: 992px) {
+    .insights-dashboard-split-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-body-frame {
+        padding: 0;
+    }
+    .dashboard-layout-wrapper {
+        flex-direction: column;
+        border: none;
+        border-radius: 0;
+        min-height: 100vh;
+    }
+    .sidebar-nav-panel {
+        width: 100%;
+        padding: 15px;
+        border-right: none;
+        border-bottom: 1px solid #e0e6e0;
+    }
+    .sidebar-brand-header {
+        display: none;
+    }
+    .sidebar-menu-links {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    .menu-link-item {
+        padding: 10px;
+        font-size: 13px;
+    }
+    .nav-text {
+        display: none; /* Collapses menu strings on tight mobile screens */
+    }
+    .main-dashboard-canvas {
+        padding: 20px;
+    }
+    .dashboard-canvas-header h2 {
+        font-size: 18px;
+    }
+    
+    /* Registration & login screen device constraints adjustments */
+    .mobile-phone-frame {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+    }
+}
