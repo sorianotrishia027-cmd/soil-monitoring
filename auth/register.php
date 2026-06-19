@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $role = 'farmer'; // Fixed: only farmers can register
+    $role = 'farmer'; // Only farmers can register
 
     if (!empty($fullname) && !empty($username) && !empty($email) && !empty($password)) {
         if ($password !== $confirm_password) {
@@ -54,8 +54,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         top: 50%;
         transform: translateY(-50%);
         cursor: pointer;
-        color: #666;
-        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .toggle-password svg {
+        width: 18px;
+        height: 18px;
+        stroke: #888;
+        stroke-width: 2;
+        fill: none;
+    }
+    .toggle-password:hover svg {
+        stroke: #666;
     }
     </style>
 </head>
@@ -88,12 +99,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <div class="input-wrapper password-wrapper">
                     <input type="password" name="password" id="regPassword" placeholder="Password" required>
-                    <span class="toggle-password" onclick="togglePassword('regPassword')">👁️</span>
+                    <span class="toggle-password" onclick="togglePassword('regPassword')">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </span>
                 </div>
 
                 <div class="input-wrapper password-wrapper">
                     <input type="password" name="confirm_password" id="regConfirmPassword" placeholder="Confirm Password" required>
-                    <span class="toggle-password" onclick="togglePassword('regConfirmPassword')">👁️</span>
+                    <span class="toggle-password" onclick="togglePassword('regConfirmPassword')">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </span>
                 </div>
 
                 <button type="submit" class="mockup-register-btn">Register as Farmer</button>
@@ -108,7 +129,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <script>
     function togglePassword(fieldId) {
         const field = document.getElementById(fieldId);
-        field.type = field.type === "password" ? "text" : "password";
+        const icon = event.currentTarget.querySelector('svg');
+        if (field.type === "password") {
+            field.type = "text";
+            icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+        } else {
+            field.type = "password";
+            icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+        }
     }
     </script>
 </body>
