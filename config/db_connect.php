@@ -3,7 +3,7 @@
 $host = getenv('MYSQLHOST') ?: "thomas.proxy.rlwy.net";
 $dbname = getenv('MYSQLDATABASE') ?: "railway";
 $user = getenv('MYSQLUSER') ?: "root";
-$pass = getenv('MYSQLPASSWORD') ?: "XFYvHQjIZlMLkECZwHeAbllZBfszyGXV";
+$pass = getenv('MYSQLPASSWORD') ?: "XFyYHOjIZlWLkECZwHeAbllZBfszyGXv"; 
 $port = getenv('MYSQLPORT') ?: 18293;
 
 try {
