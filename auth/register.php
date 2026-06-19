@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $role = 'farmer';
+    $role = 'farmer'; // Fixed: only farmers can register
 
     if (!empty($fullname) && !empty($username) && !empty($email) && !empty($password)) {
         if ($password !== $confirm_password) {
@@ -43,6 +43,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Sto Cristo Cooperative</title>
     <link rel="stylesheet" href="../css/style.css">
+    <style>
+    .password-wrapper {
+        position: relative;
+        width: 100%;
+    }
+    .toggle-password {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #666;
+        font-size: 18px;
+    }
+    </style>
 </head>
 <body class="auth-body">
     <div class="mobile-phone-frame">
@@ -70,13 +85,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="input-wrapper high-contrast-border">
                     <input type="text" name="username" placeholder="Username" required>
                 </div>
-                <div class="input-wrapper">
-                    <input type="password" name="password" placeholder="Password" required>
+
+                <div class="input-wrapper password-wrapper">
+                    <input type="password" name="password" id="regPassword" placeholder="Password" required>
+                    <span class="toggle-password" onclick="togglePassword('regPassword')">👁️</span>
                 </div>
-                <div class="input-wrapper">
-                    <input type="password" name="confirm_password" placeholder="Confirm Password" required>
+
+                <div class="input-wrapper password-wrapper">
+                    <input type="password" name="confirm_password" id="regConfirmPassword" placeholder="Confirm Password" required>
+                    <span class="toggle-password" onclick="togglePassword('regConfirmPassword')">👁️</span>
                 </div>
-                <button type="submit" class="mockup-register-btn">Register</button>
+
+                <button type="submit" class="mockup-register-btn">Register as Farmer</button>
             </form>
             
             <div class="auth-footer-links">
@@ -84,5 +104,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
         </div>
     </div>
+
+    <script>
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        field.type = field.type === "password" ? "text" : "password";
+    }
+    </script>
 </body>
 </html>
