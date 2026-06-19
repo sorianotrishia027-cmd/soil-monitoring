@@ -19,34 +19,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // ------ TEMPORARY LIVE DEBUGGING BOX ------
-            echo "<div style='background: #fff; color: #000; padding: 20px; border: 3px solid red; font-family: monospace; position: relative; z-index: 9999;'>";
-            echo "<h3>⚙️ Login Debug Diagnostics:</h3>";
-            echo "<strong>1. Typed Email:</strong> [" . htmlspecialchars($email) . "]<br>";
-            echo "<strong>2. Typed Password:</strong> [" . htmlspecialchars($password) . "]<br>";
-            
-            if (!$user) {
-                echo "<br><span style='color: red; font-weight: bold;'>❌ Error: No matching user record found in the database for this email!</span><br>";
-            } else {
-                echo "<br><span style='color: green; font-weight: bold;'>✔ User Found in DB!</span><br>";
-                echo "<strong>Database Username:</strong> " . htmlspecialchars($user['username'] ?? 'N/A') . "<br>";
-                echo "<strong>Database Role:</strong> " . htmlspecialchars($user['role'] ?? 'N/A') . "<br>";
-                echo "<strong>Stored Hash Value:</strong> <span style='color: blue;'>" . htmlspecialchars($user['password'] ?? 'EMPTY') . "</span><br>";
-                echo "<strong>Hash Length:</strong> " . strlen($user['password'] ?? '') . " characters<br>";
-                
-                $verifyCheck = password_verify($password, $user['password']);
-                echo "<strong>3. PHP Password Verification Result:</strong> " . ($verifyCheck ? "<span style='color: green; font-weight: bold;'>TRUE</span>" : "<span style='color: red; font-weight: bold;'>FALSE</span>") . "<br>";
-            }
-            echo "</div>";
-            // ------------------------------------------
+            if ($user) {
+                // Check if plain text matches OR if it matches a standard hashed password string
+                $isPlainMatch = ($password === $user['password']);
+                $isHashMatch = password_verify($password, $user['password']);
 
-            if ($user && password_verify($password, $user['password'])) {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role']; 
-                
-                header("Location: ../dashboard.php");
-                exit();
+                if ($isPlainMatch || $isHashMatch) {
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = $user['role']; 
+                    
+                    header("Location: ../dashboard.php");
+                    exit();
+                } else {
+                    $message = "Invalid email or password.";
+                }
             } else {
                 $message = "Invalid email or password.";
             }
@@ -68,7 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
     <div class="auth-container">
         <h2>Login</h2>
-        <?php if(!empty($message)) echo "<p class='info'>$message</p>"; ?>
+        <?php if(!empty($message)) echo "<p class='error'>$message</p>"; ?>
         <form action="login.php" method="POST">
             <input type="email" name="email" placeholder="Email Address" required>
             <input type="password" name="password" placeholder="Password" required>
