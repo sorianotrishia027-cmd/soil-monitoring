@@ -4,21 +4,16 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include "../config/db_connect.php";
 
-// Security Check: Enforce strictly that only admins can hit this processor script
 if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
-    echo "<p class='error'>⛔ Access Denied. Administrative clearance required.</p>";
+    echo "<p class='error'>Access Denied. Administrative clearance required.</p>";
     exit;
 }
 
 $action_msg = "";
 
-// ----------------==================================----------------
-//  BACKEND FORM ACTIONS HANDLING (ADD / EDIT / DELETE)
-// ----------------==================================----------------
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
     $action = $_POST['form_action'];
 
-    // 1. CREATE ACCOUNT ACTION
     if ($action === 'create_user') {
         $username = trim($_POST['username'] ?? '');
         $email = trim($_POST['email'] ?? '');
@@ -31,16 +26,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
                 $hashed_password = password_hash($password, PASSWORD_BCRYPT);
                 $stmt = $conn->prepare("INSERT INTO users (username, email, fullname, password, role) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$username, $email, $fullname, $hashed_password, $role]);
-                $action_msg = "<div class='alert success'>✅ Account for '$username' registered successfully.</div>";
+                $action_msg = "<div class='alert success'>Account for '$username' registered successfully.</div>";
             } catch (PDOException $e) {
-                $action_msg = "<div class='alert danger'>❌ Registration error: " . $e->getMessage() . "</div>";
+                $action_msg = "<div class='alert danger'>Registration error: " . $e->getMessage() . "</div>";
             }
         } else {
-            $action_msg = "<div class='alert warning'>⚠️ Please populate all required entry slots.</div>";
+            $action_msg = "<div class='alert warning'>Please populate all required entry slots.</div>";
         }
     }
 
-    // 2. UPDATE ACCOUNT ACTION
     if ($action === 'update_user') {
         $id = intval($_POST['user_id'] ?? 0);
         $role = $_POST['role'] ?? 'farmer';
@@ -49,39 +43,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
         try {
             $stmt = $conn->prepare("UPDATE users SET role = ?, fullname = ? WHERE id = ?");
             $stmt->execute([$role, $fullname, $id]);
-            $action_msg = "<div class='alert success'>✅ Account updates applied successfully.</div>";
+            $action_msg = "<div class='alert success'>Account updates applied successfully.</div>";
         } catch (PDOException $e) {
-            $action_msg = "<div class='alert danger'>❌ Update failed: " . $e->getMessage() . "</div>";
+            $action_msg = "<div class='alert danger'>Update failed: " . $e->getMessage() . "</div>";
         }
     }
 
-    // 3. DELETE ACCOUNT ACTION
     if ($action === 'delete_user') {
         $id = intval($_POST['user_id'] ?? 0);
         
-        // Prevent deleting yourself accidentally
         if ($id === intval($_SESSION['user_id'])) {
-            $action_msg = "<div class='alert danger'>❌ Operational error: You cannot drop your own active root session profile.</div>";
+            $action_msg = "<div class='alert danger'>Operational error: You cannot drop your own active root session profile.</div>";
         } else {
             try {
                 $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
                 $stmt->execute([$id]);
-                $action_msg = "<div class='alert success'>✅ Account systematically purged from records.</div>";
+                $action_msg = "<div class='alert success'>Account systematically purged from records.</div>";
             } catch (PDOException $e) {
-                $action_msg = "<div class='alert danger'>❌ Deletion failed: " . $e->getMessage() . "</div>";
+                $action_msg = "<div class='alert danger'>Deletion failed: " . $e->getMessage() . "</div>";
             }
         }
     }
 }
 
-// Gather all records currently in the users database table 
 $users_list = $conn->query("SELECT id, username, email, fullname, role FROM users ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <div class="sub-view-panel-container">
     <div class="view-panel-header">
         <h3>User Account Management Control Panel</h3>
-        <p>Unrestricted system access: Provision new accounts, update clearance roles, or revoke cooperative database entries.</p>
+        <p>System access control: Provision new accounts, update clearance roles, or revoke cooperative database entries.</p>
     </div>
 
     <?= $action_msg ?>
@@ -89,7 +80,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
     <div class="insights-dashboard-split-row" style="margin-bottom: 30px;">
         
         <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc;">
-            <h3 style="margin-bottom: 15px; color: var(--primary-color);">➕ Register New User</h3>
+            <h3 style="margin-bottom: 15px; color: var(--primary-color);">Register New User</h3>
             <form action="dashboard.php?page=users_manage" method="POST">
                 <input type="hidden" name="form_action" value="create_user">
                 
@@ -137,7 +128,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
     </div>
 
     <div class="view-panel-header">
-        <h3>📋 Registered Cooperative Profiles</h3>
+        <h3>Registered Cooperative Profiles</h3>
     </div>
 
     <div class="history-table-wrapper" style="overflow-x: auto; background: #fff; padding: 15px; border-radius: 16px; border: 1px solid #ccd4cc;">
@@ -186,7 +177,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
 
 <div id="editUserModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
     <div class="action-alert-panel-card" style="background: #ffffff; max-width: 400px; width: 90%; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); padding: 30px;">
-        <h3 style="margin-bottom: 15px; color: var(--primary-color);">📝 Update User Profile</h3>
+        <h3 style="margin-bottom: 15px; color: var(--primary-color);">Update User Profile</h3>
         <form action="dashboard.php?page=users_manage" method="POST">
             <input type="hidden" name="form_action" value="update_user">
             <input type="hidden" name="user_id" id="modal_user_id">

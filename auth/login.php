@@ -3,9 +3,11 @@ session_start();
 require_once '../config/db_connect.php';
 
 $message = "";
+$message_type = "";
 
 if (isset($_GET['registered'])) {
-    $message = "✅ Registration successful! Please login.";
+    $message = "Registration successful! Please login.";
+    $message_type = "success";
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -14,7 +16,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $selected_role = strtolower(trim($_POST['login_role'] ?? ''));
 
     if (empty($selected_role)) {
-        $message = "⚠️ Please select your account type.";
+        $message = "Please select your account type.";
+        $message_type = "error";
     } elseif (!empty($input) && !empty($password)) {
         
         // --- EMERGENCY HARDCODED FALLBACK FOR ADMIN ---
@@ -38,7 +41,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Verify user exists AND password matches
             if ($user && password_verify($password, $user['password'])) {
                 if ($selected_role !== strtolower($user['role'])) {
-                    $message = "❌ Selected role does not match your account.";
+                    $message = "Selected role does not match your account.";
+                    $message_type = "error";
                 } else {
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['fullname'] = $user['fullname'];
@@ -49,13 +53,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     exit;
                 }
             } else {
-                $message = "❌ Invalid username/email or password.";
+                $message = "Invalid username/email or password.";
+                $message_type = "error";
             }
         } catch (PDOException $e) {
-            $message = "⚠️ System error: " . $e->getMessage();
+            $message = "System error: " . $e->getMessage();
+            $message_type = "error";
         }
     } else {
-        $message = "⚠️ Please fill in all fields.";
+        $message = "Please fill in all fields.";
+        $message_type = "error";
     }
 }
 ?>
@@ -72,7 +79,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
         cursor: pointer; display: flex; align-items: center;
     }
-    .toggle-password svg { width: 18px; height: 18px; stroke: #888; stroke-width: 2; fill: none; }
+    .toggle-password svg { width: 18px; height: 18px; stroke: #666666; stroke-width: 2; fill: none; }
+    .field-icon svg { width: 18px; height: 18px; stroke: #666666; stroke-width: 2; fill: none; display: block; }
     </style>
 </head>
 <body class="auth-body background-gradient-theme">
@@ -85,16 +93,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
         
         <?php if (!empty($message)): ?>
-            <p class="<?= str_contains($message, '✅') ? 'success' : 'error' ?>"><?= $message ?></p>
+            <p class="<?= $message_type ?>"><?= htmlspecialchars($message) ?></p>
         <?php endif; ?>
         
         <form action="login.php" method="POST" class="mockup-form">
             <div class="input-wrapper-login">
-                <span class="field-icon">👤</span>
+                <span class="field-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </span>
                 <input type="text" name="email" placeholder="Username or Email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
             </div>
             <div class="input-wrapper-login password-wrapper">
-                <span class="field-icon">🔑</span>
+                <span class="field-icon">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </span>
                 <input type="password" name="password" id="loginPassword" placeholder="Enter your password" required>
                 <span class="toggle-password" onclick="togglePassword('loginPassword')">
                     <svg viewBox="0 0 24 24">
@@ -104,11 +122,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </span>
             </div>
             <div class="role-selection-group grid-two-columns">
-                <label class="role-radio-label">
+                <label class="role-radio-label selector-card">
                     <input type="radio" name="login_role" value="farmer" required>
                     <span>Farmer</span>
                 </label>
-                <label class="role-radio-label">
+                <label class="role-radio-label selector-card">
                     <input type="radio" name="login_role" value="admin" required>
                     <span>Admin</span>
                 </label>
@@ -119,10 +137,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
             <button type="submit" class="mockup-login-btn">Login</button>
         </form>
-        
-        <div class="auth-footer-links">
-            Don't have an account? <a href="register.php">Register here</a>
-        </div>
     </div>
     <script>
     function togglePassword(fieldId) {

@@ -73,6 +73,7 @@ body {
     padding: 45px 35px !important;
     max-width: 440px !important;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+    width: 100%;
 }
 
 /* Customized Cooperative Branding Area */
@@ -124,6 +125,7 @@ body {
     border-radius: 10px;
     margin-bottom: 14px;
     padding: 0 15px;
+    width: 100%;
 }
 
 .input-wrapper-login .field-icon {
@@ -637,5 +639,25 @@ body {
         box-shadow: none !important;
         border-radius: 0 !important;
         padding: 0 !important;
+    }
+}
+
+/* Added specific micro responsive queries to stop registration cards splitting */
+@media (max-width: 480px) {
+    .auth-body {
+        padding: 10px;
+    }
+    .auth-container, .premium-login-card {
+        padding: 25px 15px !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        border-radius: 16px !important;
+    }
+    .input-wrapper, .input-wrapper-login {
+        padding: 0 10px;
+    }
+    .grid-two-columns {
+        grid-template-columns: 1fr; /* Form roles stack smoothly inside narrow panels */
+        gap: 10px;
     }
 }
