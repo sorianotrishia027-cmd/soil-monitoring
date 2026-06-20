@@ -1,3 +1,22 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include "../config/db_connect.php";
+
+$role = strtolower($_SESSION['role'] ?? 'farmer');
+$user_id = $_SESSION['user_id'] ?? 0;
+
+// Gather real historical rows to display once available
+if ($role === 'admin') {
+    $stmt = $conn->query("SELECT s.*, u.username FROM sensor_data s LEFT JOIN users u ON s.user_id = u.id ORDER BY s.id DESC LIMIT 10");
+    $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $conn->prepare("SELECT * FROM sensor_data WHERE user_id = ? ORDER BY id DESC LIMIT 10");
+    $stmt->execute([$user_id]);
+    $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+?>
 <div class="sub-view-panel-container">
     <div class="view-panel-header">
         <h3>Soil Parameter Criteria Rules</h3>
@@ -49,5 +68,45 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="view-panel-header" style="margin-top: 30px;">
+        <h3>📋 Recent Telemetry History</h3>
+        <p><?= $role === 'admin' ? 'System Audit View: Reviewing last 10 transmissions across all active field nodes.' : 'Review your field\'s last 10 logged analysis data profiles.' ?></p>
+    </div>
+
+    <div class="history-table-wrapper" style="overflow-x: auto; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8e2;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e2e8e2; color: #424242;">
+                    <?php if($role === 'admin'): ?><th style="padding: 10px;">Farmer</th><?php endif; ?>
+                    <th style="padding: 10px;">Moisture</th>
+                    <th style="padding: 10px;">pH</th>
+                    <th style="padding: 10px;">Temp</th>
+                    <th style="padding: 10px;">N-P-K</th>
+                    <th style="padding: 10px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($history)): ?>
+                    <tr>
+                        <td colspan="<?= $role === 'admin' ? 6 : 5 ?>" style="padding: 15px; text-align: center; color: #888;">No historical entries recorded. Data streams will initialize when hardware goes online.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($history as $row): ?>
+                        <tr style="border-bottom: 1px solid #f0f4f0;">
+                            <?php if($role === 'admin'): ?>
+                                <td style="padding: 10px; font-weight: bold;"><?= htmlspecialchars($row['username'] ?? 'System / Unlinked') ?></td>
+                            <?php endif; ?>
+                            <td style="padding: 10px;"><?= htmlspecialchars($row['moisture']) ?>%</td>
+                            <td style="padding: 10px;"><?= htmlspecialchars($row['ph_level']) ?></td>
+                            <td style="padding: 10px;"><?= htmlspecialchars($row['temperature']) ?>°C</td>
+                            <td style="padding: 10px;"><?= htmlspecialchars($row['nitrogen']) . '-' . htmlspecialchars($row['phosphorus']) . '-' . htmlspecialchars($row['potassium']) ?></td>
+                            <td style="padding: 10px;"><span class="status-pill"><?= htmlspecialchars($row['status']) ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 </div>

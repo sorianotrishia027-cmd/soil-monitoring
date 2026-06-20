@@ -6,8 +6,15 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once 'config/db_connect.php';
-$role = $_SESSION['role'] ?? 'farmer';
+$role = strtolower($_SESSION['role'] ?? 'farmer');
 $page = $_GET['page'] ?? 'home';
+
+// Security Guard: Prevent farmers from accessing admin-exclusive subviews manually
+$admin_exclusive_pages = ['users_manage', 'devices_manage', 'system_reports'];
+if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
+    header("Location: dashboard.php?page=home");
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -32,21 +39,45 @@ $page = $_GET['page'] ?? 'home';
                         <span class="nav-text">Home</span>
                     </a>
                 </li>
-                <li>
-                    <a href="dashboard.php?page=soil" class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>">
-                        <span class="nav-text">Soil Data</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="dashboard.php?page=alerts" class="menu-link-item <?= $page === 'alerts' ? 'active' : '' ?>">
-                        <span class="nav-text">Alerts</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="dashboard.php?page=recommendations" class="menu-link-item <?= $page === 'recommendations' ? 'active' : '' ?>">
-                        <span class="nav-text">Recommendations</span>
-                    </a>
-                </li>
+                
+                <?php if ($role === 'admin'): ?>
+                    <li>
+                        <a href="dashboard.php?page=users_manage" class="menu-link-item <?= $page === 'users_manage' ? 'active' : '' ?>">
+                            <span class="nav-text">Manage Accounts</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dashboard.php?page=devices_manage" class="menu-link-item <?= $page === 'devices_manage' ? 'active' : '' ?>">
+                            <span class="nav-text">Manage Hardware</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dashboard.php?page=soil" class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>">
+                            <span class="nav-text">All Sensor Data</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dashboard.php?page=system_reports" class="menu-link-item <?= $page === 'system_reports' ? 'active' : '' ?>">
+                            <span class="nav-text">System Reports</span>
+                        </a>
+                    </li>
+                <?php else: ?>
+                    <li>
+                        <a href="dashboard.php?page=soil" class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>">
+                            <span class="nav-text">My Soil Data</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dashboard.php?page=alerts" class="menu-link-item <?= $page === 'alerts' ? 'active' : '' ?>">
+                            <span class="nav-text">My Alerts</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dashboard.php?page=recommendations" class="menu-link-item <?= $page === 'recommendations' ? 'active' : '' ?>">
+                            <span class="nav-text">Recommendations</span>
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
             <div class="sidebar-bottom-action">
@@ -75,6 +106,16 @@ $page = $_GET['page'] ?? 'home';
                             break;
                         case 'recommendations':
                             include 'views/recommendations.php';
+                            break;
+                        // Admin-exclusive View Imports
+                        case 'users_manage':
+                            include 'views/users_manage.php';
+                            break;
+                        case 'devices_manage':
+                            include 'views/devices_manage.php';
+                            break;
+                        case 'system_reports':
+                            include 'views/system_reports.php';
                             break;
                         case 'home':
                         default:

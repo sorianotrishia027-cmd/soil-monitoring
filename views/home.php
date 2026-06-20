@@ -1,10 +1,22 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 include "../config/db_connect.php";
-$latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-$role = $_SESSION['role'] ?? 'farmer';
+
+$role = strtolower($_SESSION['role'] ?? 'farmer');
+$user_id = $_SESSION['user_id'] ?? 0;
+
+// Admin views newest absolute row, Farmer views ONLY their own latest data entry
+if ($role === 'admin') {
+    $latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $conn->prepare("SELECT * FROM sensor_data WHERE user_id = ? ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$user_id]);
+    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+}
 ?>
 <div class="home-view-grid">
-    <!-- Telemetry Strip Overview -->
     <div class="summary-telemetry-strip">
         <div class="telemetry-chip">
             <span class="chip-label">Soil Moisture:</span>
@@ -24,7 +36,6 @@ $role = $_SESSION['role'] ?? 'farmer';
         </div>
     </div>
 
-    <!-- NPK Nutrient Card -->
     <div class="npk-hero-card">
         <h3>Current Nutrient Composition</h3>
         <h1>NPK: <?= $latest ? htmlspecialchars($latest['nitrogen']) . ' / ' . htmlspecialchars($latest['phosphorus']) . ' / ' . htmlspecialchars($latest['potassium']) : '-- -- --' ?></h1>
@@ -36,7 +47,6 @@ $role = $_SESSION['role'] ?? 'farmer';
         </div>
     </div>
 
-    <!-- Status & Chart -->
     <div class="insights-dashboard-split-row">
         <div class="action-alert-panel-card">
             <h3>Soil Status</h3>
@@ -44,7 +54,7 @@ $role = $_SESSION['role'] ?? 'farmer';
             
             <div class="nested-sub-recommends-box" style="border-left-color: <?= $latest ? '#4caf50' : '#ccd4cc' ?>;">
                 <span class="muted-title">STATUS</span>
-                <p><?= $latest ? 'Last updated: ' . date('M j, g:i A', strtotime($latest['created_at'])) : 'System is ready. Awaiting data inputs.' ?></p>
+                <p><?= ($latest && isset($latest['created_at'])) ? 'Last updated: ' . date('M j, g:i A', strtotime($latest['created_at'])) : 'System is ready. Awaiting data inputs.' ?></p>
             </div>
         </div>
 
@@ -65,7 +75,7 @@ $role = $_SESSION['role'] ?? 'farmer';
             labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
             datasets: [{
                 label: 'Moisture Level (%)',
-                data: [],
+                data: [], // Empty for now until hardware is streaming logs
                 borderColor: '#0b8a47',
                 borderDash: [5, 5],
                 fill: false

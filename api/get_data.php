@@ -2,6 +2,15 @@
 header("Content-Type: application/json");
 include "../config/db_connect.php";
 
+// Pull target session context if requested from web interface, default to a target post parameter for hardware
+$user_id = $_POST['user_id'] ?? ($_GET['user_id'] ?? null);
+
+// If running in browser session context
+if (!$user_id) {
+    session_start();
+    $user_id = $_SESSION['user_id'] ?? null;
+}
+
 // Generate sample readings (Simulating live data before building the hardware)
 $moisture    = round(rand(20, 80) + (rand(0, 99) / 100), 2);
 $ph_level    = round(rand(45, 75) / 10, 1);
@@ -31,15 +40,19 @@ if ($moisture < 30) {
     $status = "OPTIMAL";
 }
 
-// Insert directly into your dynamic data tables
+// Insert directly into data tables linked by user_id references
 try {
     $stmt = $conn->prepare("INSERT INTO sensor_data 
-        (moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$moisture, $ph_level, $temperature, $nitrogen, $phosphorus, $potassium, $status]);
+        (user_id, moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$user_id, $moisture, $ph_level, $temperature, $nitrogen, $phosphorus, $potassium, $status]);
     
     // Return latest record back to user interface
-    $latest = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $last_id = $conn->lastInsertId();
+    $stmt_latest = $conn->prepare("SELECT * FROM sensor_data WHERE id = ?");
+    $stmt_latest->execute([$last_id]);
+    $latest = $stmt_latest->fetch(PDO::FETCH_ASSOC);
+    
     echo json_encode($latest);
 } catch (PDOException $e) {
     echo json_encode(["error" => $e->getMessage()]);
