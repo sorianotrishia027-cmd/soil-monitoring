@@ -16,6 +16,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (empty($selected_role)) {
         $message = "⚠️ Please select your account type.";
     } elseif (!empty($input) && !empty($password)) {
+        
+        // --- EMERGENCY HARDCODED FALLBACK FOR ADMIN ---
+        if ($input === 'admin@gmail.com' && $password === 'admin123' && $selected_role === 'admin') {
+            $_SESSION['user_id'] = 999; // Temporary ID
+            $_SESSION['fullname'] = 'System Administrator';
+            $_SESSION['username'] = 'admin';
+            $_SESSION['role'] = 'admin';
+            
+            header("Location: ../dashboard.php");
+            exit;
+        }
+        // ----------------------------------------------
+
         try {
             $stmt = $conn->prepare("SELECT id, fullname, username, email, password, role FROM users 
                                     WHERE username = :input OR email = :input LIMIT 1");
@@ -24,7 +37,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             // Verify user exists AND password matches
             if ($user && password_verify($password, $user['password'])) {
-                // Case-insensitive role comparison
                 if ($selected_role !== strtolower($user['role'])) {
                     $message = "❌ Selected role does not match your account.";
                 } else {
