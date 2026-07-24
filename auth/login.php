@@ -13,16 +13,12 @@ if (isset($_GET['registered'])) {
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $input = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    $selected_role = strtolower(trim($_POST['login_role'] ?? ''));
 
-    if (empty($selected_role)) {
-        $message = "Please select your account type.";
-        $message_type = "error";
-    } elseif (!empty($input) && !empty($password)) {
+    if (!empty($input) && !empty($password)) {
         
         // --- EMERGENCY HARDCODED FALLBACK FOR ADMIN ---
-        if ($input === 'admin@gmail.com' && $password === 'admin123' && $selected_role === 'admin') {
-            $_SESSION['user_id'] = 999; // Temporary ID
+        if ($input === 'admin@gmail.com' && $password === 'admin123') {
+            $_SESSION['user_id'] = 999;
             $_SESSION['fullname'] = 'System Administrator';
             $_SESSION['username'] = 'admin';
             $_SESSION['role'] = 'admin';
@@ -33,25 +29,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         // ----------------------------------------------
 
         try {
+            // Look up the user by email or username
             $stmt = $conn->prepare("SELECT id, fullname, username, email, password, role FROM users 
                                     WHERE username = :input OR email = :input LIMIT 1");
             $stmt->execute([':input' => $input]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Verify user exists AND password matches
+            // Verify user exists AND password matches hash
             if ($user && password_verify($password, $user['password'])) {
-                if ($selected_role !== strtolower($user['role'])) {
-                    $message = "Selected role does not match your account.";
-                    $message_type = "error";
-                } else {
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['fullname'] = $user['fullname'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['role'] = $user['role'];
-                    
-                    header("Location: ../dashboard.php");
-                    exit;
-                }
+                // Store account details and role automatically from database record
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['fullname'] = $user['fullname'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = strtolower($user['role']);
+                
+                header("Location: ../dashboard.php");
+                exit;
             } else {
                 $message = "Invalid username/email or password.";
                 $message_type = "error";
@@ -114,16 +107,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     </svg>
                 </span>
                 <input type="password" name="password" id="loginPassword" placeholder="Enter your password" required>
-                <span class="toggle-password" onclick="togglePassword('loginPassword')">
+                <span class="toggle-password" onclick="togglePassword('loginPassword', this)">
                     <svg viewBox="0 0 24 24">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                     </svg>
                 </span>
-            </div>
-            <div class="role-selection-group grid-two-columns">
-        
-    
             </div>
             <div class="remember-me-container">
                 <input type="checkbox" id="remember_me" name="remember_me">
@@ -133,9 +122,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </form>
     </div>
     <script>
-    function togglePassword(fieldId) {
+    function togglePassword(fieldId, element) {
         const field = document.getElementById(fieldId);
-        const icon = event.currentTarget.querySelector('svg');
+        const icon = element.querySelector('svg');
         if (field.type === "password") {
             field.type = "text";
             icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
