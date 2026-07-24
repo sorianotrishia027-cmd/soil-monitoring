@@ -122,14 +122,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </span>
             </div>
             <div class="role-selection-group grid-two-columns">
-                <label class="role-radio-label selector-card">
-                    <input type="radio" name="login_role" value="farmer" required>
-                    <span>Farmer</span>
-                </label>
-                <label class="role-radio-label selector-card">
-                    <input type="radio" name="login_role" value="admin" required>
-                    <span>Admin</span>
-                </label>
+        
+    
             </div>
             <div class="remember-me-container">
                 <input type="checkbox" id="remember_me" name="remember_me">
