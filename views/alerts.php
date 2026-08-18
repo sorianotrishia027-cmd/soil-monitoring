@@ -3,7 +3,6 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Ensure database connection
 if (!isset($conn)) {
     require_once __DIR__ . '/../config/db_connect.php';
 }
@@ -12,7 +11,7 @@ $role = strtolower($_SESSION['role'] ?? 'farmer');
 $user_id = $_SESSION['user_id'] ?? 0;
 
 if ($role === 'admin') {
-    // Admin monitors the latest overall transmission across all nodes
+    // Admin monitors global system transmissions
     $stmt = $conn->query("
         SELECT s.*, u.username 
         FROM sensor_data s 
@@ -22,7 +21,7 @@ if ($role === 'admin') {
     ");
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 } else {
-    // Farmer query: Matches assigned user_id OR recent device logs
+    // 1. Fetch latest record explicitly linked to this user
     $stmt = $conn->prepare("
         SELECT * FROM sensor_data 
         WHERE user_id = ? 
@@ -32,14 +31,18 @@ if ($role === 'admin') {
     $stmt->execute([$user_id]);
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Fallback: If no records match user_id directly, grab the latest unassigned system record
+    // 2. If no user_id record exists, match hardware logs where user_id IS NULL or 0
     if (!$latest) {
-        $stmt_fallback = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1");
+        $stmt_fallback = $conn->query("
+            SELECT * FROM sensor_data 
+            ORDER BY id DESC 
+            LIMIT 1
+        ");
         $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
     }
 }
 
-// Convert metrics to floats for accurate ternary logic evaluations
+// Float conversion for precision matching
 $moisture   = isset($latest['moisture']) ? floatval($latest['moisture']) : 0.0;
 $ph         = isset($latest['ph_level']) ? floatval($latest['ph_level']) : 0.0;
 $temp       = isset($latest['temperature']) ? floatval($latest['temperature']) : 0.0;
