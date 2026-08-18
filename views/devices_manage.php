@@ -24,8 +24,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
     if ($farmer_id > 0 && !empty($new_label)) {
         try {
             // Inserts a baseline telemetry row to bind this device label to the farmer
-            $stmt = $conn->prepare("INSERT INTO sensor_data (user_id, device_label, moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status, created_at) 
-                                    VALUES (?, ?, 45.0, 6.2, 26.0, 35, 22, 30, 'OPTIMAL', NOW())");
+            $stmt = $conn->prepare("INSERT INTO sensor_data (user_id, device_label, moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status) 
+                                    VALUES (?, ?, 45.0, 6.2, 26.0, 35, 22, 30, 'OPTIMAL')");
             $stmt->execute([$farmer_id, $new_label]);
             $msg = "<div class='alert success' style='background:#e8f5e9; color:#2e7d32; padding:12px 16px; border-radius:8px; margin-bottom:20px;'>✅ Successfully mapped tracking identifier '<strong>" . htmlspecialchars($new_label) . "</strong>' to the selected farmer profile.</div>";
         } catch (PDOException $e) {
@@ -36,14 +36,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
     }
 }
 
-// Fixed Query: Correctly fetches the latest device_label and timestamp for every farmer account
+// Fixed Query: Fetch latest mapped device label for each farmer without relying on s.created_at
 $assignments_query = "
     SELECT 
         u.id AS user_id, 
         u.username, 
         u.fullname, 
-        s.device_label, 
-        s.created_at AS last_stream
+        s.device_label,
+        s.id AS last_log_id
     FROM users u
     LEFT JOIN sensor_data s ON s.id = (
         SELECT max_s.id 
@@ -132,7 +132,6 @@ try {
                     <th style="padding: 12px;">Full Name</th>
                     <th style="padding: 12px;">Assigned Node ID</th>
                     <th style="padding: 12px;">Status</th>
-                    <th style="padding: 12px;">Last Contact Sync</th>
                 </tr>
             </thead>
             <tbody>
@@ -149,14 +148,11 @@ try {
                                     <?= $row['device_label'] ? 'Active Node' : 'Idle' ?>
                                 </span>
                             </td>
-                            <td style="padding: 12px; color: #6c757d;">
-                                <?= $row['last_stream'] ? date('M j, Y - g:i A', strtotime($row['last_stream'])) : 'Never Linked' ?>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="5" style="padding: 20px; text-align: center; color: #6c757d;">No registered farmer accounts found in the database.</td>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #6c757d;">No registered farmer accounts found in the database.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
