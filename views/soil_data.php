@@ -51,6 +51,14 @@ try {
 } catch (PDOException $e) {
     $historyLogs = [];
 }
+
+// Safe Field Extraction with Key Fallbacks
+$valMoisture = isset($latest['moisture']) ? $latest['moisture'] : ($latest['soil_moisture'] ?? null);
+$valPh       = isset($latest['ph']) ? $latest['ph'] : ($latest['ph_level'] ?? null);
+$valN        = isset($latest['nitrogen']) ? $latest['nitrogen'] : ($latest['n'] ?? null);
+$valP        = isset($latest['phosphorus']) ? $latest['phosphorus'] : ($latest['p'] ?? null);
+$valK        = isset($latest['potassium']) ? $latest['potassium'] : ($latest['k'] ?? null);
+$valTemp     = isset($latest['temperature']) ? $latest['temperature'] : ($latest['temp'] ?? null);
 ?>
 
 <div class="soil-data-container">
@@ -72,7 +80,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #0d6efd; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">Soil Moisture</span>
             <h2 style="margin: 8px 0; color: #0d6efd;" id="soil-val-moisture">
-                <?= $latest ? htmlspecialchars(number_format($latest['moisture'], 1)) . '%' : '--' ?>
+                <?= $valMoisture !== null ? htmlspecialchars(number_format(floatval($valMoisture), 1)) . '%' : '--' ?>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 30% - 60%</span>
         </div>
@@ -81,7 +89,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #198754; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">pH Level</span>
             <h2 style="margin: 8px 0; color: #198754;" id="soil-val-ph">
-                <?= $latest ? htmlspecialchars(number_format($latest['ph'] ?? $latest['ph_level'] ?? 0, 1)) : '--' ?>
+                <?= $valPh !== null ? htmlspecialchars(number_format(floatval($valPh), 1)) : '--' ?>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 5.0 - 7.5</span>
         </div>
@@ -90,7 +98,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #0dcaf0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">Nitrogen (N)</span>
             <h2 style="margin: 8px 0; color: #0dcaf0;" id="soil-val-n">
-                <?= $latest ? htmlspecialchars($latest['nitrogen']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
+                <?= $valN !== null ? htmlspecialchars($valN) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 20 - 50</span>
         </div>
@@ -99,7 +107,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #ffc107; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">Phosphorus (P)</span>
             <h2 style="margin: 8px 0; color: #d39e00;" id="soil-val-p">
-                <?= $latest ? htmlspecialchars($latest['phosphorus']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
+                <?= $valP !== null ? htmlspecialchars($valP) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 10 - 30</span>
         </div>
@@ -108,7 +116,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #dc3545; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">Potassium (K)</span>
             <h2 style="margin: 8px 0; color: #dc3545;" id="soil-val-k">
-                <?= $latest ? htmlspecialchars($latest['potassium']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
+                <?= $valK !== null ? htmlspecialchars($valK) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 15 - 50</span>
         </div>
@@ -117,7 +125,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #6c757d; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">Temperature</span>
             <h2 style="margin: 8px 0; color: #343a40;" id="soil-val-temp">
-                <?= $latest ? htmlspecialchars(number_format($latest['temperature'], 1)) . '°C' : '--' ?>
+                <?= $valTemp !== null ? htmlspecialchars(number_format(floatval($valTemp), 1)) . '°C' : '--' ?>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 20°C - 32°C</span>
         </div>
@@ -188,14 +196,22 @@ try {
                 <tbody id="telemetry-table-body">
                     <?php if (!empty($historyLogs)): ?>
                         <?php foreach ($historyLogs as $log): ?>
+                            <?php 
+                                $lMoisture = $log['moisture'] ?? $log['soil_moisture'] ?? 0;
+                                $lPh       = $log['ph'] ?? $log['ph_level'] ?? 0;
+                                $lN        = $log['nitrogen'] ?? $log['n'] ?? 0;
+                                $lP        = $log['phosphorus'] ?? $log['p'] ?? 0;
+                                $lK        = $log['potassium'] ?? $log['k'] ?? 0;
+                                $lTemp     = $log['temperature'] ?? $log['temp'] ?? 0;
+                            ?>
                             <tr style="border-bottom: 1px solid #e9ecef;">
-                                <td style="padding: 10px;"><?= date("M j, Y - g:i A", strtotime($log['created_at'])) ?></td>
-                                <td style="padding: 10px; font-weight: 600; color: #0d6efd;"><?= number_format($log['moisture'], 1) ?>%</td>
-                                <td style="padding: 10px; font-weight: 600; color: #198754;"><?= number_format($log['ph'] ?? $log['ph_level'] ?? 0, 1) ?></td>
-                                <td style="padding: 10px;"><?= htmlspecialchars($log['nitrogen']) ?> mg/kg</td>
-                                <td style="padding: 10px;"><?= htmlspecialchars($log['phosphorus']) ?> mg/kg</td>
-                                <td style="padding: 10px;"><?= htmlspecialchars($log['potassium']) ?> mg/kg</td>
-                                <td style="padding: 10px;"><?= number_format($log['temperature'], 1) ?>°C</td>
+                                <td style="padding: 10px;"><?= isset($log['created_at']) ? date("M j, Y - g:i A", strtotime($log['created_at'])) : 'N/A' ?></td>
+                                <td style="padding: 10px; font-weight: 600; color: #0d6efd;"><?= number_format(floatval($lMoisture), 1) ?>%</td>
+                                <td style="padding: 10px; font-weight: 600; color: #198754;"><?= number_format(floatval($lPh), 1) ?></td>
+                                <td style="padding: 10px;"><?= htmlspecialchars($lN) ?> mg/kg</td>
+                                <td style="padding: 10px;"><?= htmlspecialchars($lP) ?> mg/kg</td>
+                                <td style="padding: 10px;"><?= htmlspecialchars($lK) ?> mg/kg</td>
+                                <td style="padding: 10px;"><?= number_format(floatval($lTemp), 1) ?>°C</td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>

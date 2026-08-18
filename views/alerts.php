@@ -1,17 +1,18 @@
 <?php
+// views/alerts.php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 $role = strtolower($_SESSION['role'] ?? 'farmer');
 
-// Use $latest array passed down from dashboard.php with fallback to 'ph'
-$moisture   = floatval($latest['moisture'] ?? 0);
+// Safe Field Extraction with Key Fallbacks
+$moisture   = floatval($latest['moisture'] ?? $latest['soil_moisture'] ?? 0);
 $ph         = floatval($latest['ph'] ?? $latest['ph_level'] ?? 0);
-$temp       = floatval($latest['temperature'] ?? 0);
-$nitrogen   = floatval($latest['nitrogen'] ?? 0);
-$phosphorus = floatval($latest['phosphorus'] ?? 0);
-$potassium  = floatval($latest['potassium'] ?? 0);
+$temp       = floatval($latest['temperature'] ?? $latest['temp'] ?? 0);
+$nitrogen   = floatval($latest['nitrogen'] ?? $latest['n'] ?? 0);
+$phosphorus = floatval($latest['phosphorus'] ?? $latest['p'] ?? 0);
+$potassium  = floatval($latest['potassium'] ?? $latest['k'] ?? 0);
 ?>
 
 <div class="sub-view-panel-container">
