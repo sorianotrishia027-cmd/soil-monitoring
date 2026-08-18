@@ -3,52 +3,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($conn)) {
-    require_once __DIR__ . '/../config/db_connect.php';
-}
+require_once __DIR__ . '/../config/db_connect.php';
+require_once __DIR__ . '/../config/get_latest_sensor.php';
 
+// Fetch the single source of truth for telemetry data
+$latest = getLatestSensorData($conn);
 $role = strtolower($_SESSION['role'] ?? 'farmer');
-$user_id = $_SESSION['user_id'] ?? 0;
 
-if ($role === 'admin') {
-    // Admin monitors global system transmissions
-    $stmt = $conn->query("
-        SELECT s.*, u.username 
-        FROM sensor_data s 
-        LEFT JOIN users u ON s.user_id = u.id 
-        ORDER BY s.id DESC 
-        LIMIT 1
-    ");
-    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-} else {
-    // 1. Fetch latest record explicitly linked to this user
-    $stmt = $conn->prepare("
-        SELECT * FROM sensor_data 
-        WHERE user_id = ? 
-        ORDER BY id DESC 
-        LIMIT 1
-    ");
-    $stmt->execute([$user_id]);
-    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // 2. If no user_id record exists, match hardware logs where user_id IS NULL or 0
-    if (!$latest) {
-        $stmt_fallback = $conn->query("
-            SELECT * FROM sensor_data 
-            ORDER BY id DESC 
-            LIMIT 1
-        ");
-        $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
-    }
-}
-
-// Float conversion for precision matching
-$moisture   = isset($latest['moisture']) ? floatval($latest['moisture']) : 0.0;
-$ph         = isset($latest['ph_level']) ? floatval($latest['ph_level']) : 0.0;
-$temp       = isset($latest['temperature']) ? floatval($latest['temperature']) : 0.0;
-$nitrogen   = isset($latest['nitrogen']) ? floatval($latest['nitrogen']) : 0.0;
-$phosphorus = isset($latest['phosphorus']) ? floatval($latest['phosphorus']) : 0.0;
-$potassium  = isset($latest['potassium']) ? floatval($latest['potassium']) : 0.0;
+// Cast values to explicit floats to eliminate ternary evaluation errors
+$moisture   = isset($latest['moisture']) ? (float)$latest['moisture'] : 0.0;
+$ph         = isset($latest['ph_level']) ? (float)$latest['ph_level'] : 0.0;
+$temp       = isset($latest['temperature']) ? (float)$latest['temperature'] : 0.0;
+$nitrogen   = isset($latest['nitrogen']) ? (float)$latest['nitrogen'] : 0.0;
+$phosphorus = isset($latest['phosphorus']) ? (float)$latest['phosphorus'] : 0.0;
+$potassium  = isset($latest['potassium']) ? (float)$latest['potassium'] : 0.0;
 ?>
 
 <div class="sub-view-panel-container">
@@ -80,7 +48,7 @@ $potassium  = isset($latest['potassium']) ? floatval($latest['potassium']) : 0.0
         <!-- Soil Moisture Alert -->
         <div class="alert <?= $moisture < 30.0 ? 'danger' : ($moisture > 60.0 ? 'warning' : 'success') ?>">
             <strong>Moisture Content (<?= number_format($moisture, 2) ?>%)</strong><br>
-            <?= $moisture < 30.0 ? "Too dry — water the field immediately to protect root networks." : ($moisture > 60.0 ? "Too wet — halt irrigation pumps and check soil drainage avenues." : "✅ Optimal thermal and soil moisture balance detected.") ?>
+            <?= $moisture < 30.0 ? "Too dry — water the field immediately to protect root networks." : ($moisture > 60.0 ? "Too wet — halt irrigation pumps and check soil drainage avenues." : "✅ Favorable moisture baseline detected.") ?>
         </div>
 
         <!-- Soil pH Alert -->
