@@ -4,15 +4,15 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Ensure database connection is present
+// Set Philippine Timezone
+date_default_timezone_set('Asia/Manila');
+
+// Ensure database connection
 if (!isset($conn)) {
     require_once __DIR__ . '/../config/db_connect.php';
 }
 
-$user_id = $_SESSION['user_id'] ?? 0;
-$role = strtolower($_SESSION['role'] ?? 'farmer');
-
-// Fetch latest live reading from soil_readings
+// 1. Fetch Latest Telemetry Reading
 try {
     $stmtLatest = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 1");
     $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
@@ -20,9 +20,9 @@ try {
     $latest = null;
 }
 
-// Fetch historical logs (last 15 entries)
+// 2. Fetch History Logs (Last 20 entries saved at 30-minute intervals)
 try {
-    $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 15");
+    $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
     $historyLogs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $historyLogs = [];
@@ -30,18 +30,18 @@ try {
 ?>
 
 <div class="soil-data-container">
-    <!-- View Title & Live Sync Badge -->
+    <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
             <h2 style="margin: 0; color: #1a252c;">My Soil Telemetry & Analysis</h2>
-            <p style="margin: 4px 0 0; color: #6c757d; font-size: 14px;">Real-time parameters streamed from field sensor node</p>
+            <p style="margin: 4px 0 0; color: #6c757d; font-size: 14px;">Logged field readings (Saved every 30 minutes)</p>
         </div>
         <div style="background: #e8f5e9; color: #2e7d32; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px;" id="soil-live-badge">
-            ● Live Stream Connected
+            ● 30-Min Interval Logging Active
         </div>
     </div>
 
-    <!-- Live Telemetry Metric Cards Grid -->
+    <!-- Live Telemetry Metric Cards -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px;">
         
         <!-- Moisture Card -->
@@ -50,7 +50,7 @@ try {
             <h2 style="margin: 8px 0; color: #0d6efd;" id="soil-val-moisture">
                 <?= $latest ? htmlspecialchars(number_format($latest['moisture'], 1)) . '%' : '--' ?>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 30% - 60%</span>
+            <span style="font-size: 11px; color: #888;">Target: 30% - 60%</span>
         </div>
 
         <!-- pH Card -->
@@ -59,7 +59,7 @@ try {
             <h2 style="margin: 8px 0; color: #198754;" id="soil-val-ph">
                 <?= $latest ? htmlspecialchars(number_format($latest['ph'], 1)) : '--' ?>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 5.0 - 7.5</span>
+            <span style="font-size: 11px; color: #888;">Target: 5.0 - 7.5</span>
         </div>
 
         <!-- Nitrogen Card -->
@@ -68,7 +68,7 @@ try {
             <h2 style="margin: 8px 0; color: #0dcaf0;" id="soil-val-n">
                 <?= $latest ? htmlspecialchars($latest['nitrogen']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 20 - 50</span>
+            <span style="font-size: 11px; color: #888;">Target: 20 - 50</span>
         </div>
 
         <!-- Phosphorus Card -->
@@ -77,7 +77,7 @@ try {
             <h2 style="margin: 8px 0; color: #d39e00;" id="soil-val-p">
                 <?= $latest ? htmlspecialchars($latest['phosphorus']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 10 - 30</span>
+            <span style="font-size: 11px; color: #888;">Target: 10 - 30</span>
         </div>
 
         <!-- Potassium Card -->
@@ -86,7 +86,7 @@ try {
             <h2 style="margin: 8px 0; color: #dc3545;" id="soil-val-k">
                 <?= $latest ? htmlspecialchars($latest['potassium']) : '--' ?> <span style="font-size: 14px;">mg/kg</span>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 15 - 50</span>
+            <span style="font-size: 11px; color: #888;">Target: 15 - 50</span>
         </div>
 
         <!-- Temperature Card -->
@@ -95,11 +95,11 @@ try {
             <h2 style="margin: 8px 0; color: #343a40;" id="soil-val-temp">
                 <?= $latest ? htmlspecialchars(number_format($latest['temperature'], 1)) . '°C' : '--' ?>
             </h2>
-            <span style="font-size: 11px; color: #888;">Optimal: 20°C - 32°C</span>
+            <span style="font-size: 11px; color: #888;">Target: 20°C - 32°C</span>
         </div>
     </div>
 
-    <!-- Parameter Criteria Rules Reference Card -->
+    <!-- Parameter Criteria Reference Card -->
     <div style="background: #ffffff; padding: 22px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 25px;">
         <h3 style="margin-top: 0; color: #212529; font-size: 18px;">Soil Parameter Criteria Rules</h3>
         <p style="color: #6c757d; font-size: 13px; margin-bottom: 15px;">Review standard ranges and threshold matrices used to evaluate crop growing conditions.</p>
@@ -108,27 +108,27 @@ try {
             <div>
                 <strong>Soil Moisture (Range: 0 – 100%)</strong>
                 <ul style="padding-left: 18px; margin: 5px 0 0; color: #495057;">
-                    <li><strong>&lt; 30% (Dry):</strong> Requires immediate irrigation intervention.</li>
-                    <li><strong>30% – 60% (Optimal):</strong> Favorable status bounds.</li>
-                    <li><strong>&gt; 60% (Wet / Saturated):</strong> Halt water application; optimize drainage.</li>
+                    <li><strong>&lt; 30% (Dry):</strong> Requires immediate irrigation.</li>
+                    <li><strong>30% – 60% (Optimal):</strong> Favorable growth bounds.</li>
+                    <li><strong>&gt; 60% (Wet):</strong> Halt irrigation; optimize drainage.</li>
                 </ul>
             </div>
 
             <div>
-                <strong>Soil pH Level (Range: 0 – 14 | Ideal: 5.5 – 7.0)</strong>
+                <strong>Soil pH Level (Range: 0 – 14)</strong>
                 <ul style="padding-left: 18px; margin: 5px 0 0; color: #495057;">
-                    <li><strong>&lt; 5.0 (Acidic):</strong> Requires lime or dolomite treatments.</li>
+                    <li><strong>&lt; 5.0 (Acidic):</strong> Requires lime treatments.</li>
                     <li><strong>5.0 – 7.5 (Optimal):</strong> Stable absorption environments.</li>
-                    <li><strong>&gt; 7.5 (Alkaline):</strong> Requires organic compound or sulfur additives.</li>
+                    <li><strong>&gt; 7.5 (Alkaline):</strong> Requires organic or sulfur additives.</li>
                 </ul>
             </div>
 
             <div>
-                <strong>Temperature (Range: 0°C – 50°C | Ideal: 20°C – 30°C)</strong>
+                <strong>Temperature (Range: 0°C – 50°C)</strong>
                 <ul style="padding-left: 18px; margin: 5px 0 0; color: #495057;">
-                    <li><strong>&lt; 18°C (Cool / Low):</strong> Delay vulnerable seeding; apply mulch.</li>
-                    <li><strong>20°C – 32°C (Optimal):</strong> Superb conditions for baseline growth.</li>
-                    <li><strong>&gt; 35°C (High / Hot):</strong> High evaporation risk; avoid midday watering.</li>
+                    <li><strong>&lt; 18°C (Cool):</strong> Apply mulch covers.</li>
+                    <li><strong>20°C – 32°C (Optimal):</strong> Baseline growth conditions.</li>
+                    <li><strong>&gt; 35°C (High):</strong> Avoid midday watering.</li>
                 </ul>
             </div>
 
@@ -143,10 +143,10 @@ try {
         </div>
     </div>
 
-    <!-- Telemetry History Log Table -->
+    <!-- Recent Telemetry History Table -->
     <div style="background: #ffffff; padding: 22px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
         <h3 style="margin-top: 0; color: #212529; font-size: 18px;">📋 Recent Telemetry History</h3>
-        <p style="color: #6c757d; font-size: 13px; margin-bottom: 15px;">Review your field's last logged analysis data profiles.</p>
+        <p style="color: #6c757d; font-size: 13px; margin-bottom: 15px;">Logged analysis data recorded every 30 minutes.</p>
 
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
@@ -165,7 +165,7 @@ try {
                     <?php if (!empty($historyLogs)): ?>
                         <?php foreach ($historyLogs as $log): ?>
                             <tr style="border-bottom: 1px solid #e9ecef;">
-                                <td style="padding: 10px;"><?= date("M j, Y - g:i:s A", strtotime($log['created_at'])) ?></td>
+                                <td style="padding: 10px;"><?= date("M j, Y - g:i A", strtotime($log['created_at'])) ?></td>
                                 <td style="padding: 10px; font-weight: 600; color: #0d6efd;"><?= number_format($log['moisture'], 1) ?>%</td>
                                 <td style="padding: 10px; font-weight: 600; color: #198754;"><?= number_format($log['ph'], 1) ?></td>
                                 <td style="padding: 10px;"><?= htmlspecialchars($log['nitrogen']) ?> mg/kg</td>
@@ -184,26 +184,3 @@ try {
         </div>
     </div>
 </div>
-
-<!-- Live Auto Polling Script -->
-<script>
-function pollSoilDataView() {
-    fetch('api/get_latest_data.php')
-        .then(res => res.json())
-        .then(res => {
-            if (res.status === 'success' && res.data) {
-                const d = res.data;
-                document.getElementById('soil-val-moisture').innerText = (parseFloat(d.moisture) || 0).toFixed(1) + '%';
-                document.getElementById('soil-val-ph').innerText = (parseFloat(d.ph) || 0).toFixed(1);
-                document.getElementById('soil-val-n').innerHTML = (d.nitrogen || 0) + ' <span style="font-size: 14px;">mg/kg</span>';
-                document.getElementById('soil-val-p').innerHTML = (d.phosphorus || 0) + ' <span style="font-size: 14px;">mg/kg</span>';
-                document.getElementById('soil-val-k').innerHTML = (d.potassium || 0) + ' <span style="font-size: 14px;">mg/kg</span>';
-                document.getElementById('soil-val-temp').innerText = (parseFloat(d.temperature) || 0).toFixed(1) + '°C';
-            }
-        })
-        .catch(err => console.error("Error updating soil telemetry:", err));
-}
-
-// Refresh telemetry cards every 5 seconds
-setInterval(pollSoilDataView, 5000);
-</script>
