@@ -1,4 +1,7 @@
 <?php
+// Set PHP system timezone to Philippine Standard Time
+date_default_timezone_set('Asia/Manila');
+
 // Railway automatically provides these environment variables when deployed
 $host = getenv('MYSQLHOST') ?: "thomas.proxy.rlwy.net";
 $dbname = getenv('MYSQLDATABASE') ?: "railway";
@@ -10,6 +13,10 @@ try {
     $conn = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $user, $pass);
     // Set the PDO error mode to exception
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    // Set MySQL session time zone to Philippine Time (UTC+8)
+    $conn->exec("SET time_zone = '+08:00';");
+
 } catch(PDOException $e) {
     $message = "Connection failed: " . $e->getMessage();
 
