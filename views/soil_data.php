@@ -13,22 +13,11 @@ if (!isset($conn)) {
 $user_id = $_SESSION['user_id'] ?? 0;
 $role = strtolower($_SESSION['role'] ?? 'farmer');
 
-// 1. Fetch or sync Latest Telemetry Reading from soil_readings
+// 1. Fetch Latest Telemetry Reading from soil_readings
 if (!isset($latest) || empty($latest)) {
     try {
-        if ($role === 'admin') {
-            $stmtLatest = $conn->query("SELECT s.*, u.username FROM soil_readings s LEFT JOIN users u ON s.user_id = u.id ORDER BY s.id DESC LIMIT 1");
-        } else {
-            $stmtLatest = $conn->prepare("SELECT * FROM soil_readings WHERE user_id = ? ORDER BY id DESC LIMIT 1");
-            $stmtLatest->execute([$user_id]);
-        }
+        $stmtLatest = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
         $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
-
-        // Fallback if logged-in user doesn't have custom records yet
-        if (!$latest) {
-            $stmtFallback = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
-            $latest = $stmtFallback->fetch(PDO::FETCH_ASSOC);
-        }
     } catch (PDOException $e) {
         $latest = null;
     }
@@ -36,18 +25,8 @@ if (!isset($latest) || empty($latest)) {
 
 // 2. Fetch History Logs for Table View
 try {
-    if ($role === 'admin') {
-        $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
-    } else {
-        $stmtLogs = $conn->prepare("SELECT * FROM soil_readings WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
-        $stmtLogs->execute([$user_id]);
-    }
+    $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
     $historyLogs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
-
-    if (empty($historyLogs)) {
-        $stmtFallbackLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
-        $historyLogs = $stmtFallbackLogs->fetchAll(PDO::FETCH_ASSOC);
-    }
 } catch (PDOException $e) {
     $historyLogs = [];
 }

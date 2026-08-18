@@ -4,78 +4,115 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$role = strtolower($_SESSION['role'] ?? 'farmer');
+date_default_timezone_set('Asia/Manila');
 
-// Safe Field Extraction with Key Fallbacks
-$moisture   = floatval($latest['moisture'] ?? $latest['soil_moisture'] ?? 0);
-$ph         = floatval($latest['ph'] ?? $latest['ph_level'] ?? 0);
-$temp       = floatval($latest['temperature'] ?? $latest['temp'] ?? 0);
-$nitrogen   = floatval($latest['nitrogen'] ?? $latest['n'] ?? 0);
-$phosphorus = floatval($latest['phosphorus'] ?? $latest['p'] ?? 0);
-$potassium  = floatval($latest['potassium'] ?? $latest['k'] ?? 0);
+if (!isset($conn)) {
+    require_once __DIR__ . '/../config/db_connect.php';
+}
+
+$alerts = [];
+
+try {
+    // Fetch latest readings to check for parameter threshold breaches
+    $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 10");
+    $recentReadings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($recentReadings as $reading) {
+        $moisture = floatval($reading['moisture'] ?? $reading['soil_moisture'] ?? 0);
+        $ph       = floatval($reading['ph'] ?? $reading['ph_level'] ?? 0);
+        $n        = floatval($reading['nitrogen'] ?? $reading['n'] ?? 0);
+        $p        = floatval($reading['phosphorus'] ?? $reading['p'] ?? 0);
+        $k        = floatval($reading['potassium'] ?? $reading['k'] ?? 0);
+        $temp     = floatval($reading['temperature'] ?? $reading['temp'] ?? 0);
+        $time     = isset($reading['created_at']) ? date("M j, Y - g:i A", strtotime($reading['created_at'])) : 'Recent';
+
+        // Moisture Checks
+        if ($moisture < 30) {
+            $alerts[] = [
+                'type' => 'danger',
+                'title' => 'Critical Low Moisture',
+                'msg' => "Soil moisture is at {$moisture}%. Immediate irrigation required.",
+                'time' => $time
+            ];
+        } elseif ($moisture > 60) {
+            $alerts[] = [
+                'type' => 'warning',
+                'title' => 'High Moisture Level',
+                'msg' => "Soil moisture is at {$moisture}%. Halt irrigation to avoid waterlogging.",
+                'time' => $time
+            ];
+        }
+
+        // pH Level Checks
+        if ($ph < 5.0) {
+            $alerts[] = [
+                'type' => 'danger',
+                'title' => 'High Soil Acidity',
+                'msg' => "pH reading is {$ph}. Consider applying agricultural lime.",
+                'time' => $time
+            ];
+        } elseif ($ph > 7.5) {
+            $alerts[] = [
+                'type' => 'warning',
+                'title' => 'High Soil Alkalinity',
+                'msg' => "pH reading is {$ph}. Consider adding organic sulfur additives.",
+                'time' => $time
+            ];
+        }
+
+        // Nitrogen Checks
+        if ($n < 20) {
+            $alerts[] = [
+                'type' => 'warning',
+                'title' => 'Nitrogen Deficiency',
+                'msg' => "Nitrogen is low at {$n} mg/kg. Urea or nitrogen fertilizer recommended.",
+                'time' => $time
+            ];
+        }
+
+        // Temperature Checks
+        if ($temp > 35) {
+            $alerts[] = [
+                'type' => 'danger',
+                'title' => 'High Soil Temperature',
+                'msg' => "Soil temp reached {$temp}°C. Avoid midday watering to protect root systems.",
+                'time' => $time
+            ];
+        }
+    }
+} catch (PDOException $e) {
+    $alerts = [];
+}
 ?>
 
-<div class="sub-view-panel-container">
-    <div class="view-panel-header">
-        <h3>⚠️ System Critical & Condition Alerts</h3>
-        <?php if ($role === 'admin'): ?>
-            <p>Admin Operations Monitor: Displaying latest node transmission entry recorded in the cooperative database.</p>
-        <?php else: ?>
-            <p>Real-time agricultural health indicators parsed directly from your hardware sensor logs.</p>
-        <?php endif; ?>
+<div class="alerts-container">
+    <div style="margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #1a252c;">System & Field Alerts</h2>
+        <p style="margin: 4px 0 0; color: #6c757d; font-size: 14px;">Automated warnings based on recent telemetry threshold evaluations.</p>
     </div>
 
-    <?php if (!$latest): ?>
-        <div class="alert info">
-            <strong>Awaiting Telemetry Streams</strong><br>
-            No active sensor data has been posted to this account yet. Telemetry will automatically show up once the hardware nodes are connected.
-        </div>
-    <?php else: ?>
-
-        <?php if ($role === 'admin'): ?>
-            <div class="notification-event-strip status-border-admin" style="background: #e3f2fd; margin-bottom: 20px; padding: 12px; border-radius: 6px;">
-                <span class="muted-title" style="color: #0d47a1; font-weight: bold; font-size: 11px;">TELEMETRY OWNER</span>
-                <p style="font-size: 15px; font-weight: 600; color: #1565c0; margin-top: 2px;">
-                    Node User: <?= htmlspecialchars($latest['username'] ?? 'System / Unlinked Hardware') ?>
-                </p>
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <?php if (!empty($alerts)): ?>
+            <?php foreach ($alerts as $alert): ?>
+                <?php 
+                    $isDanger = $alert['type'] === 'danger';
+                    $bgColor  = $isDanger ? '#fff5f5' : '#fff9db';
+                    $borderColor = $isDanger ? '#ff4d4f' : '#ffe066';
+                    $textColor = $isDanger ? '#c92a2a' : '#e67700';
+                ?>
+                <div style="background: <?= $bgColor ?>; border-left: 5px solid <?= $borderColor ?>; padding: 16px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <strong style="color: <?= $textColor ?>; font-size: 15px;"><?= htmlspecialchars($alert['title']) ?></strong>
+                        <span style="font-size: 12px; color: #868e96;"><?= htmlspecialchars($alert['time']) ?></span>
+                    </div>
+                    <p style="margin: 0; color: #495057; font-size: 14px;"><?= htmlspecialchars($alert['msg']) ?></p>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div style="background: #e8f5e9; border-left: 5px solid #4caf50; padding: 20px; border-radius: 8px; text-align: center;">
+                <strong style="color: #2e7d32; font-size: 16px;">All Metrics Nominal</strong>
+                <p style="margin: 5px 0 0; color: #495057; font-size: 14px;">No critical thresholds breached in recent field readings.</p>
             </div>
         <?php endif; ?>
-
-        <!-- Soil Moisture Alert -->
-        <div class="alert <?= $moisture < 30.0 ? 'danger' : ($moisture > 60.0 ? 'warning' : 'success') ?>">
-            <strong>Moisture Content (<?= number_format($moisture, 2) ?>%)</strong><br>
-            <?= $moisture < 30.0 ? "Too dry — water the field immediately to protect root networks." : ($moisture > 60.0 ? "Too wet — halt irrigation pumps and check soil drainage avenues." : "✅ Favorable moisture baseline detected.") ?>
-        </div>
-
-        <!-- Soil pH Alert -->
-        <div class="alert <?= $ph < 5.0 ? 'danger' : ($ph > 7.5 ? 'warning' : 'success') ?>">
-            <strong>Soil pH Balance (<?= number_format($ph, 2) ?>)</strong><br>
-            <?= $ph < 5.0 ? "Too acidic — apply agricultural lime or dolomite treatments." : ($ph > 7.5 ? "Too alkaline — integrate organic compost matter or sulfur additives." : "✅ Ideal pH balance for crop nutrient absorption.") ?>
-        </div>
-
-        <!-- Ambient Temperature Alert -->
-        <div class="alert <?= $temp > 35.0 ? 'danger' : ($temp < 18.0 ? 'info' : 'success') ?>">
-            <strong>Ambient Temperature (<?= number_format($temp, 1) ?>°C)</strong><br>
-            <?= $temp > 35.0 ? "Too hot — run early morning or late afternoon deep watering routines." : ($temp < 18.0 ? "Too cool — apply organic mulch canvas layers to preserve soil heat." : "✅ Optimal thermal conditions for steady growth.") ?>
-        </div>
-
-        <!-- Nitrogen (N) Alert -->
-        <div class="alert <?= $nitrogen < 20.0 ? 'warning' : ($nitrogen > 50.0 ? 'danger' : 'success') ?>">
-            <strong>Nitrogen (N) (<?= number_format($nitrogen, 2) ?> mg/kg)</strong><br>
-            <?= $nitrogen < 20.0 ? "Low nutrient state — apply calculated urea or chicken manure blends." : ($nitrogen > 50.0 ? "Excess concentrations — pause nitrogenous chemical additive usage." : "✅ Nitrogen proportions are currently optimal.") ?>
-        </div>
-
-        <!-- Phosphorus (P) Alert -->
-        <div class="alert <?= $phosphorus < 10.0 ? 'warning' : ($phosphorus > 30.0 ? 'danger' : 'success') ?>">
-            <strong>Phosphorus (P) (<?= number_format($phosphorus, 2) ?> mg/kg)</strong><br>
-            <?= $phosphorus < 10.0 ? "Low baseline — dress soil profile with localized superphosphate complexes." : ($phosphorus > 30.0 ? "Excess saturation — scale back phosphorus fertilizer input ratios." : "✅ Phosphorus structural counts are stable.") ?>
-        </div>
-
-        <!-- Potassium (K) Alert -->
-        <div class="alert <?= $potassium < 15.0 ? 'warning' : ($potassium > 50.0 ? 'danger' : 'success') ?>">
-            <strong>Potassium (K) (<?= number_format($potassium, 2) ?> mg/kg)</strong><br>
-            <?= $potassium < 15.0 ? "Deficient compound count — apply muriate of potash or clean wood ash." : ($potassium > 50.0 ? "Excess saturation — limit mineral fertilizer application schedules." : "✅ Potassium health thresholds look great.") ?>
-        </div>
-
-    <?php endif; ?>
+    </div>
 </div>

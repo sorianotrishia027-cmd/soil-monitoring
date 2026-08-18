@@ -21,30 +21,9 @@ if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
 // SINGLE SOURCE OF TRUTH: Fetch latest telemetry ONCE from soil_readings
 // =========================================================================
 try {
-    if ($role === 'admin') {
-        $stmt = $conn->query("
-            SELECT s.*, u.username 
-            FROM soil_readings s 
-            LEFT JOIN users u ON s.user_id = u.id 
-            ORDER BY s.id DESC LIMIT 1
-        ");
-        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-    } else {
-        // 1. Check for logged-in user's latest record
-        $stmt = $conn->prepare("
-            SELECT * FROM soil_readings 
-            WHERE user_id = ? 
-            ORDER BY id DESC LIMIT 1
-        ");
-        $stmt->execute([$user_id]);
-        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        // 2. Fallback to general system telemetry if user has no assigned records yet
-        if (!$latest) {
-            $stmt_fallback = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
-            $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
-        }
-    }
+    // Fetch latest reading directly from soil_readings using device_id structure
+    $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
+    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $latest = null;
 }
