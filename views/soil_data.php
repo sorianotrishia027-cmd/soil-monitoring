@@ -4,26 +4,50 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Set Philippine Timezone
 date_default_timezone_set('Asia/Manila');
 
-// Ensure database connection
 if (!isset($conn)) {
     require_once __DIR__ . '/../config/db_connect.php';
 }
 
-// 1. Fetch Latest Telemetry Reading
-try {
-    $stmtLatest = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 1");
-    $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $latest = null;
+$user_id = $_SESSION['user_id'] ?? 0;
+$role = strtolower($_SESSION['role'] ?? 'farmer');
+
+// 1. Fetch or sync Latest Telemetry Reading from soil_readings
+if (!isset($latest) || empty($latest)) {
+    try {
+        if ($role === 'admin') {
+            $stmtLatest = $conn->query("SELECT s.*, u.username FROM soil_readings s LEFT JOIN users u ON s.user_id = u.id ORDER BY s.id DESC LIMIT 1");
+        } else {
+            $stmtLatest = $conn->prepare("SELECT * FROM soil_readings WHERE user_id = ? ORDER BY id DESC LIMIT 1");
+            $stmtLatest->execute([$user_id]);
+        }
+        $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
+
+        // Fallback if logged-in user doesn't have custom records yet
+        if (!$latest) {
+            $stmtFallback = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
+            $latest = $stmtFallback->fetch(PDO::FETCH_ASSOC);
+        }
+    } catch (PDOException $e) {
+        $latest = null;
+    }
 }
 
-// 2. Fetch History Logs (Last 20 entries saved at 30-minute intervals)
+// 2. Fetch History Logs for Table View
 try {
-    $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
+    if ($role === 'admin') {
+        $stmtLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
+    } else {
+        $stmtLogs = $conn->prepare("SELECT * FROM soil_readings WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
+        $stmtLogs->execute([$user_id]);
+    }
     $historyLogs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($historyLogs)) {
+        $stmtFallbackLogs = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT 20");
+        $historyLogs = $stmtFallbackLogs->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (PDOException $e) {
     $historyLogs = [];
 }
@@ -57,7 +81,7 @@ try {
         <div style="background: #ffffff; padding: 18px; border-radius: 12px; border-left: 4px solid #198754; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <span style="font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 700;">pH Level</span>
             <h2 style="margin: 8px 0; color: #198754;" id="soil-val-ph">
-                <?= $latest ? htmlspecialchars(number_format($latest['ph'], 1)) : '--' ?>
+                <?= $latest ? htmlspecialchars(number_format($latest['ph'] ?? $latest['ph_level'] ?? 0, 1)) : '--' ?>
             </h2>
             <span style="font-size: 11px; color: #888;">Target: 5.0 - 7.5</span>
         </div>
@@ -167,7 +191,7 @@ try {
                             <tr style="border-bottom: 1px solid #e9ecef;">
                                 <td style="padding: 10px;"><?= date("M j, Y - g:i A", strtotime($log['created_at'])) ?></td>
                                 <td style="padding: 10px; font-weight: 600; color: #0d6efd;"><?= number_format($log['moisture'], 1) ?>%</td>
-                                <td style="padding: 10px; font-weight: 600; color: #198754;"><?= number_format($log['ph'], 1) ?></td>
+                                <td style="padding: 10px; font-weight: 600; color: #198754;"><?= number_format($log['ph'] ?? $log['ph_level'] ?? 0, 1) ?></td>
                                 <td style="padding: 10px;"><?= htmlspecialchars($log['nitrogen']) ?> mg/kg</td>
                                 <td style="padding: 10px;"><?= htmlspecialchars($log['phosphorus']) ?> mg/kg</td>
                                 <td style="padding: 10px;"><?= htmlspecialchars($log['potassium']) ?> mg/kg</td>

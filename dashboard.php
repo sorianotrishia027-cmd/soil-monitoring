@@ -18,31 +18,35 @@ if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
 }
 
 // =========================================================================
-// SINGLE SOURCE OF TRUTH: Fetch latest telemetry ONCE for all subviews
+// SINGLE SOURCE OF TRUTH: Fetch latest telemetry ONCE from soil_readings
 // =========================================================================
-if ($role === 'admin') {
-    $stmt = $conn->query("
-        SELECT s.*, u.username 
-        FROM sensor_data s 
-        LEFT JOIN users u ON s.user_id = u.id 
-        ORDER BY s.id DESC LIMIT 1
-    ");
-    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-} else {
-    // 1. Check for logged-in user's latest record
-    $stmt = $conn->prepare("
-        SELECT * FROM sensor_data 
-        WHERE user_id = ? 
-        ORDER BY id DESC LIMIT 1
-    ");
-    $stmt->execute([$user_id]);
-    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    if ($role === 'admin') {
+        $stmt = $conn->query("
+            SELECT s.*, u.username 
+            FROM soil_readings s 
+            LEFT JOIN users u ON s.user_id = u.id 
+            ORDER BY s.id DESC LIMIT 1
+        ");
+        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        // 1. Check for logged-in user's latest record
+        $stmt = $conn->prepare("
+            SELECT * FROM soil_readings 
+            WHERE user_id = ? 
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->execute([$user_id]);
+        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // 2. Fallback to general system telemetry if user has no assigned records yet
-    if (!$latest) {
-        $stmt_fallback = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1");
-        $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
+        // 2. Fallback to general system telemetry if user has no assigned records yet
+        if (!$latest) {
+            $stmt_fallback = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
+            $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
+        }
     }
+} catch (PDOException $e) {
+    $latest = null;
 }
 ?>
 <!DOCTYPE html>
@@ -165,7 +169,7 @@ if ($role === 'admin') {
             <header class="dashboard-canvas-header">
                 <h2>Sto Cristo Concepcion Farmers Agriculture Cooperative</h2>
                 <div class="header-action-widgets">
-                    <span class="user-badge"><?= htmlspecialchars($_SESSION['username']) ?> (<?= ucfirst($role) ?>)</span>
+                    <span class="user-badge"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?> (<?= ucfirst($role) ?>)</span>
                 </div>
             </header>
 

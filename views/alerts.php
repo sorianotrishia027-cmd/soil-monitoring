@@ -5,9 +5,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $role = strtolower($_SESSION['role'] ?? 'farmer');
 
-// Use $latest array passed down from dashboard.php
+// Use $latest array passed down from dashboard.php with fallback to 'ph'
 $moisture   = floatval($latest['moisture'] ?? 0);
-$ph         = floatval($latest['ph_level'] ?? 0);
+$ph         = floatval($latest['ph'] ?? $latest['ph_level'] ?? 0);
 $temp       = floatval($latest['temperature'] ?? 0);
 $nitrogen   = floatval($latest['nitrogen'] ?? 0);
 $phosphorus = floatval($latest['phosphorus'] ?? 0);
