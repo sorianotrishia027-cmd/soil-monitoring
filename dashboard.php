@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once 'config/db_connect.php';
 $role = strtolower($_SESSION['role'] ?? 'farmer');
+$user_id = $_SESSION['user_id'] ?? 0;
 $page = $_GET['page'] ?? 'home';
 
 // Security Guard: Prevent farmers from accessing admin-exclusive subviews manually
@@ -14,6 +15,34 @@ $admin_exclusive_pages = ['users_manage', 'devices_manage', 'system_reports'];
 if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
     header("Location: dashboard.php?page=home");
     exit;
+}
+
+// =========================================================================
+// SINGLE SOURCE OF TRUTH: Fetch latest telemetry ONCE for all subviews
+// =========================================================================
+if ($role === 'admin') {
+    $stmt = $conn->query("
+        SELECT s.*, u.username 
+        FROM sensor_data s 
+        LEFT JOIN users u ON s.user_id = u.id 
+        ORDER BY s.id DESC LIMIT 1
+    ");
+    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+} else {
+    // 1. Check for logged-in user's latest record
+    $stmt = $conn->prepare("
+        SELECT * FROM sensor_data 
+        WHERE user_id = ? 
+        ORDER BY id DESC LIMIT 1
+    ");
+    $stmt->execute([$user_id]);
+    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // 2. Fallback to general system telemetry if user has no assigned records yet
+    if (!$latest) {
+        $stmt_fallback = $conn->query("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 1");
+        $latest = $stmt_fallback->fetch(PDO::FETCH_ASSOC);
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -152,7 +181,6 @@ if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
                         case 'recommendations':
                             include 'views/recommendations.php';
                             break;
-                        // Admin-exclusive View Imports
                         case 'users_manage':
                             include 'views/users_manage.php';
                             break;

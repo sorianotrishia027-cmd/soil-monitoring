@@ -3,20 +3,15 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/../config/db_connect.php';
-require_once __DIR__ . '/../config/get_latest_sensor.php';
-
-// Fetch the single source of truth for telemetry data
-$latest = getLatestSensorData($conn);
 $role = strtolower($_SESSION['role'] ?? 'farmer');
 
-// Cast values to explicit floats to eliminate ternary evaluation errors
-$moisture   = isset($latest['moisture']) ? (float)$latest['moisture'] : 0.0;
-$ph         = isset($latest['ph_level']) ? (float)$latest['ph_level'] : 0.0;
-$temp       = isset($latest['temperature']) ? (float)$latest['temperature'] : 0.0;
-$nitrogen   = isset($latest['nitrogen']) ? (float)$latest['nitrogen'] : 0.0;
-$phosphorus = isset($latest['phosphorus']) ? (float)$latest['phosphorus'] : 0.0;
-$potassium  = isset($latest['potassium']) ? (float)$latest['potassium'] : 0.0;
+// Use $latest array passed down from dashboard.php
+$moisture   = floatval($latest['moisture'] ?? 0);
+$ph         = floatval($latest['ph_level'] ?? 0);
+$temp       = floatval($latest['temperature'] ?? 0);
+$nitrogen   = floatval($latest['nitrogen'] ?? 0);
+$phosphorus = floatval($latest['phosphorus'] ?? 0);
+$potassium  = floatval($latest['potassium'] ?? 0);
 ?>
 
 <div class="sub-view-panel-container">
@@ -30,16 +25,16 @@ $potassium  = isset($latest['potassium']) ? (float)$latest['potassium'] : 0.0;
     </div>
 
     <?php if (!$latest): ?>
-        <div class="alert info" style="background:#e3f2fd; color:#0d47a1; padding:15px; border-radius:8px;">
+        <div class="alert info">
             <strong>Awaiting Telemetry Streams</strong><br>
             No active sensor data has been posted to this account yet. Telemetry will automatically show up once the hardware nodes are connected.
         </div>
     <?php else: ?>
 
         <?php if ($role === 'admin'): ?>
-            <div class="notification-event-strip status-border-admin" style="background: #e3f2fd; padding:12px; border-radius:8px; margin-bottom: 20px;">
+            <div class="notification-event-strip status-border-admin" style="background: #e3f2fd; margin-bottom: 20px; padding: 12px; border-radius: 6px;">
                 <span class="muted-title" style="color: #0d47a1; font-weight: bold; font-size: 11px;">TELEMETRY OWNER</span>
-                <p style="font-size: 15px; font-weight: 600; color: #1565c0; margin: 2px 0 0;">
+                <p style="font-size: 15px; font-weight: 600; color: #1565c0; margin-top: 2px;">
                     Node User: <?= htmlspecialchars($latest['username'] ?? 'System / Unlinked Hardware') ?>
                 </p>
             </div>
