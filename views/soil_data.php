@@ -269,12 +269,17 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
             </table>
         </div>
 
-        <!-- Pagination Controls -->
-        <?php if ($totalPages > 1): ?>
+<!-- Pagination Controls -->
+        <?php if ($totalPages > 1): 
+            // Preserve existing query parameters (like page/route) while updating history_page
+            $params = $_GET;
+            unset($params['history_page']);
+            $queryBase = !empty($params) ? '?' . http_build_query($params) . '&' : '?';
+        ?>
             <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px;">
                 <!-- Previous Button -->
                 <?php if ($page > 1): ?>
-                    <a href="?history_page=<?= $page - 1 ?>" style="padding: 6px 14px; background: #f4f7f4; color: #2c3e2c; border: 1px solid #d9e2d9; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Previous</a>
+                    <a href="<?= $queryBase ?>history_page=<?= $page - 1 ?>" style="padding: 6px 14px; background: #f4f7f4; color: #2c3e2c; border: 1px solid #d9e2d9; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Previous</a>
                 <?php else: ?>
                     <span style="padding: 6px 14px; background: #f9fbf9; color: #b5c2b5; border: 1px solid #e5ebe5; border-radius: 6px; font-size: 0.85rem; cursor: not-allowed;">Previous</span>
                 <?php endif; ?>
@@ -282,13 +287,13 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
                 <!-- Page Indicator Numbers -->
                 <div style="display: flex; gap: 4px;">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <a href="?history_page=<?= $i ?>" style="padding: 6px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600; background: <?= ($i == $page) ? '#2e7d32' : '#f4f7f4' ?>; color: <?= ($i == $page) ? '#ffffff' : '#2c3e2c' ?>; border: 1px solid <?= ($i == $page) ? '#2e7d32' : '#d9e2d9' ?>;"><?= $i ?></a>
+                        <a href="<?= $queryBase ?>history_page=<?= $i ?>" style="padding: 6px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600; background: <?= ($i == $page) ? '#2e7d32' : '#f4f7f4' ?>; color: <?= ($i == $page) ? '#ffffff' : '#2c3e2c' ?>; border: 1px solid <?= ($i == $page) ? '#2e7d32' : '#d9e2d9' ?>;"><?= $i ?></a>
                     <?php endfor; ?>
                 </div>
 
                 <!-- Next Button -->
                 <?php if ($page < $totalPages): ?>
-                    <a href="?history_page=<?= $page + 1 ?>" style="padding: 6px 14px; background: #f4f7f4; color: #2c3e2c; border: 1px solid #d9e2d9; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Next</a>
+                    <a href="<?= $queryBase ?>history_page=<?= $page + 1 ?>" style="padding: 6px 14px; background: #f4f7f4; color: #2c3e2c; border: 1px solid #d9e2d9; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Next</a>
                 <?php else: ?>
                     <span style="padding: 6px 14px; background: #f9fbf9; color: #b5c2b5; border: 1px solid #e5ebe5; border-radius: 6px; font-size: 0.85rem; cursor: not-allowed;">Next</span>
                 <?php endif; ?>
