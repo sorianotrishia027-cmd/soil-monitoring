@@ -10,6 +10,7 @@ $error = '';
 // Handle form submission for profile updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
+    $phone_number = trim($_POST['phone_number'] ?? '');
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -34,10 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($new_password === $confirm_password) {
                             if (strlen($new_password) >= 6) {
                                 $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                                $update_stmt = $conn->prepare("UPDATE users SET username = ?, password = ? WHERE id = ?");
-                                $update_stmt->execute([$username, $hashed_password, $user_id]);
+                                $update_stmt = $conn->prepare("UPDATE users SET username = ?, phone_number = ?, password = ? WHERE id = ?");
+                                $update_stmt->execute([$username, $phone_number, $hashed_password, $user_id]);
                                 $_SESSION['username'] = $username;
-                                $message = "Profile and password updated successfully.";
+                                $message = "Profile, contact number, and password updated successfully.";
                             } else {
                                 $error = "New password must be at least 6 characters long.";
                             }
@@ -48,11 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $error = "Incorrect current password.";
                     }
                 } else {
-                    // Update username only
-                    $update_stmt = $conn->prepare("UPDATE users SET username = ? WHERE id = ?");
-                    $update_stmt->execute([$username, $user_id]);
+                    // Update username and phone number only
+                    $update_stmt = $conn->prepare("UPDATE users SET username = ?, phone_number = ? WHERE id = ?");
+                    $update_stmt->execute([$username, $phone_number, $user_id]);
                     $_SESSION['username'] = $username;
-                    $message = "Profile updated successfully.";
+                    $message = "Profile and contact number updated successfully.";
                 }
             }
         } catch (PDOException $e) {
@@ -63,18 +64,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch latest user details
 try {
-    $user_stmt = $conn->prepare("SELECT username, role, created_at FROM users WHERE id = ?");
+    $user_stmt = $conn->prepare("SELECT username, role, phone_number, created_at FROM users WHERE id = ?");
     $user_stmt->execute([$user_id]);
     $current_user = $user_stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $current_user = ['username' => $_SESSION['username'], 'role' => $role, 'created_at' => 'N/A'];
+    $current_user = ['username' => $_SESSION['username'] ?? '', 'role' => $role ?? 'farmer', 'phone_number' => '', 'created_at' => 'N/A'];
 }
 ?>
 
 <div class="sub-view-panel-container" style="padding: 10px 5px;">
     <div class="view-panel-header" style="margin-bottom: 25px;">
         <h3 style="color: var(--primary-color); font-weight: 700; font-size: 1.5rem; margin-bottom: 6px;">My Account Profile</h3>
-        <p style="color: #657765; font-size: 0.95rem; margin: 0;">Manage your account credentials, security settings, and view access role.</p>
+        <p style="color: #657765; font-size: 0.95rem; margin: 0;">Manage your account credentials, security settings, SMS alert contact number, and access role.</p>
     </div>
 
     <?php if (!empty($message)): ?>
@@ -97,14 +98,20 @@ try {
             <div style="margin-bottom: 22px;">
                 <label style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Account Role</label>
                 <div style="background: #f4f7f4; border: 1px solid #e2e8e2; border-radius: 10px; padding: 12px 15px; color: #556b55; font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
-                    <span><?= ucfirst(htmlspecialchars($current_user['role'])) ?></span>
+                    <span><?= ucfirst(htmlspecialchars($current_user['role'] ?? 'farmer')) ?></span>
                     <span style="font-size: 0.8rem; background: #e2ede2; color: #2e5a2e; padding: 3px 8px; border-radius: 6px;">System Managed</span>
                 </div>
             </div>
 
             <div style="margin-bottom: 25px;">
                 <label for="username" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Username</label>
-                <input type="text" id="username" name="username" value="<?= htmlspecialchars($current_user['username']) ?>" required style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
+                <input type="text" id="username" name="username" value="<?= htmlspecialchars($current_user['username'] ?? '') ?>" required style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="phone_number" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Mobile Number for SMS Alerts</label>
+                <input type="text" id="phone_number" name="phone_number" value="<?= htmlspecialchars($current_user['phone_number'] ?? '') ?>" placeholder="09XXXXXXXXX" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
+                <span style="display: block; font-size: 0.78rem; color: #657765; margin-top: 5px;">Required for receiving automated SMS notifications during critical soil telemetry states.</span>
             </div>
 
             <div style="border-top: 1px solid #edf2ed; margin: 30px 0; padding-top: 25px;">
@@ -157,12 +164,10 @@ function togglePassword(fieldId, btn) {
     
     if (inputField.type === 'password') {
         inputField.type = 'text';
-        // Eye-off icon
         svgIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
         svgIcon.style.color = 'var(--primary-color)';
     } else {
         inputField.type = 'password';
-        // Standard eye icon
         svgIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
         svgIcon.style.color = '#657765';
     }
