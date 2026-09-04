@@ -113,17 +113,32 @@ try {
                 
                 <div style="margin-bottom: 20px;">
                     <label for="current_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Current Password</label>
-                    <input type="password" id="current_password" name="current_password" placeholder="••••••••••••" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                    <div style="position: relative;">
+                        <input type="password" id="current_password" name="current_password" placeholder="••••••••••••" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                        <button type="button" onclick="togglePassword('current_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
+                            <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
                     <div>
                         <label for="new_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">New Password</label>
-                        <input type="password" id="new_password" name="new_password" placeholder="Min. 6 characters" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                        <div style="position: relative;">
+                            <input type="password" id="new_password" name="new_password" placeholder="Min. 6 characters" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                            <button type="button" onclick="togglePassword('new_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
+                                <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label for="confirm_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Confirm Password</label>
-                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat new password" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                        <div style="position: relative;">
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat new password" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                            <button type="button" onclick="togglePassword('confirm_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
+                                <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -134,3 +149,22 @@ try {
         </form>
     </div>
 </div>
+
+<script>
+function togglePassword(fieldId, btn) {
+    const inputField = document.getElementById(fieldId);
+    const svgIcon = btn.querySelector('.eye-icon');
+    
+    if (inputField.type === 'password') {
+        inputField.type = 'text';
+        // Eye-off icon
+        svgIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+        svgIcon.style.color = 'var(--primary-color)';
+    } else {
+        inputField.type = 'password';
+        // Standard eye icon
+        svgIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+        svgIcon.style.color = '#657765';
+    }
+}
+</script>
