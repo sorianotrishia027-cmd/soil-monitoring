@@ -71,60 +71,66 @@ try {
 }
 ?>
 
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-3">
-                    <h4 class="mb-0 font-weight-bold" style="color: var(--primary-color);">My Account Profile</h4>
-                </div>
-                <div class="card-body">
-                    <?php if (!empty($message)): ?>
-                        <div class="alert alert-success" role="alert">
-                            <?= htmlspecialchars($message) ?>
-                        </div>
-                    <?php endif; ?>
+<div class="sub-view-panel-container" style="padding: 10px 5px;">
+    <div class="view-panel-header" style="margin-bottom: 25px;">
+        <h3 style="color: var(--primary-color); font-weight: 700; font-size: 1.5rem; margin-bottom: 6px;">My Account Profile</h3>
+        <p style="color: #657765; font-size: 0.95rem; margin: 0;">Manage your account credentials, security settings, and view access role.</p>
+    </div>
 
-                    <?php if (!empty($error)): ?>
-                        <div class="alert alert-danger" role="alert">
-                            <?= htmlspecialchars($error) ?>
-                        </div>
-                    <?php endif; ?>
+    <?php if (!empty($message)): ?>
+        <div style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; color: #1b5e20; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <span><?= htmlspecialchars($message) ?></span>
+        </div>
+    <?php endif; ?>
 
-                    <form action="dashboard.php?page=profile" method="POST">
-                        <div class="form-group mb-3">
-                            <label class="form-label font-weight-bold">Role</label>
-                            <input type="text" class="form-control" value="<?= ucfirst(htmlspecialchars($current_user['role'])) ?>" disabled>
-                            <small class="text-muted">Account role is managed by system administrators.</small>
-                        </div>
+    <?php if (!empty($error)): ?>
+        <div style="background-color: #ffebee; border-left: 4px solid #c62828; color: #b71c1c; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span><?= htmlspecialchars($error) ?></span>
+        </div>
+    <?php endif; ?>
 
-                        <div class="form-group mb-3">
-                            <label for="username" class="form-label font-weight-bold">Username</label>
-                            <input type="text" class="form-control" id="username" name="username" value="<?= htmlspecialchars($current_user['username']) ?>" required>
-                        </div>
-
-                        <hr class="my-4">
-
-                        <h5 class="mb-3 text-secondary">Change Password</h5>
-                        <div class="form-group mb-3">
-                            <label for="current_password" class="form-label">Current Password</label>
-                            <input type="password" class="form-control" id="current_password" name="current_password" placeholder="Enter current password to change">
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label for="new_password" class="form-label">New Password</label>
-                            <input type="password" class="form-control" id="new_password" name="new_password" placeholder="Leave blank to keep current">
-                        </div>
-
-                        <div class="form-group mb-4">
-                            <label for="confirm_password" class="form-label">Confirm New Password</label>
-                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm new password">
-                        </div>
-
-                        <button type="submit" class="btn btn-primary px-4" style="background-color: var(--primary-color); border: none;">Save Changes</button>
-                    </form>
+    <div style="background: #ffffff; border: 1px solid #d9e2d9; border-radius: 16px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); max-width: 750px;">
+        <form action="dashboard.php?page=profile" method="POST">
+            
+            <div style="margin-bottom: 22px;">
+                <label style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Account Role</label>
+                <div style="background: #f4f7f4; border: 1px solid #e2e8e2; border-radius: 10px; padding: 12px 15px; color: #556b55; font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
+                    <span><?= ucfirst(htmlspecialchars($current_user['role'])) ?></span>
+                    <span style="font-size: 0.8rem; background: #e2ede2; color: #2e5a2e; padding: 3px 8px; border-radius: 6px;">System Managed</span>
                 </div>
             </div>
-        </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="username" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Username</label>
+                <input type="text" id="username" name="username" value="<?= htmlspecialchars($current_user['username']) ?>" required style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
+            </div>
+
+            <div style="border-top: 1px solid #edf2ed; margin: 30px 0; padding-top: 25px;">
+                <h5 style="color: #2c3e2c; font-weight: 600; font-size: 1.1rem; margin-bottom: 6px;">Security & Password</h5>
+                <p style="color: #657765; font-size: 0.85rem; margin-bottom: 20px;">Leave blank if you do not want to modify your current password.</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <label for="current_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" placeholder="••••••••••••" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                    <div>
+                        <label for="new_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">New Password</label>
+                        <input type="password" id="new_password" name="new_password" placeholder="Min. 6 characters" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                    </div>
+                    <div>
+                        <label for="confirm_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Confirm Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat new password" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="submit" style="background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2); transition: opacity 0.2s;">Save Changes</button>
+            </div>
+        </form>
     </div>
 </div>
