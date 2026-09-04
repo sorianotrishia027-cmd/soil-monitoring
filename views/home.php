@@ -15,6 +15,28 @@ try {
     $latest = null;
 }
 
+// Fetch historical readings for the moisture trend chart (last 7 entries)
+try {
+    $history_stmt = $conn->query("SELECT moisture, created_at FROM soil_readings ORDER BY created_at ASC LIMIT 7");
+    $history_records = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $history_records = [];
+}
+
+$chart_labels = [];
+$chart_data = [];
+
+foreach ($history_records as $rec) {
+    $chart_labels[] = date('M j, g:i A', strtotime($rec['created_at']));
+    $chart_data[] = (float)$rec['moisture'];
+}
+
+// Fallback if no records exist yet
+if (empty($chart_data)) {
+    $chart_labels = ['Awaiting Data'];
+    $chart_data = [0];
+}
+
 // Calculate simple soil status if not stored directly
 $soilStatus = "OPTIMAL";
 if ($latest) {
@@ -79,13 +101,15 @@ if ($latest) {
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+            labels: <?= json_encode($chart_labels) ?>,
             datasets: [{
                 label: 'Moisture Level (%)',
-                data: [<?= $latest ? $latest['moisture'] : 0 ?>], // Live moisture
+                data: <?= json_encode($chart_data) ?>,
                 borderColor: '#0b8a47',
-                borderDash: [5, 5],
-                fill: false
+                backgroundColor: 'rgba(11, 138, 71, 0.05)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3
             }]
         },
         options: {
