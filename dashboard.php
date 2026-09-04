@@ -10,7 +10,7 @@ $role = strtolower($_SESSION['role'] ?? 'farmer');
 $user_id = $_SESSION['user_id'] ?? 0;
 $page = $_GET['page'] ?? 'home';
 
-// Security Guard: Prevent farmers from accessing admin-exclusive subviews manually
+// Security Guard: Prevent farmers from accessing admin-exclusive subviews manually (allow 'profile' for everyone)
 $admin_exclusive_pages = ['users_manage', 'devices_manage', 'system_reports'];
 if ($role === 'farmer' && in_array($page, $admin_exclusive_pages)) {
     header("Location: dashboard.php?page=home");
@@ -130,6 +130,17 @@ try {
                         </a>
                     </li>
                 <?php endif; ?>
+
+                <!-- Profile Link available to both Admin and Farmers -->
+                <li>
+                    <a href="dashboard.php?page=profile" class="menu-link-item <?= $page === 'profile' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <span class="nav-text">My Profile</span>
+                    </a>
+                </li>
             </ul>
 
             <div class="sidebar-bottom-action">
@@ -172,6 +183,9 @@ try {
                             break;
                         case 'system_reports':
                             include 'views/system_reports.php';
+                            break;
+                        case 'profile':
+                            include 'views/profile.php';
                             break;
                         case 'home':
                         default:

@@ -6,22 +6,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $fullname = trim($_POST['fullname'] ?? '');
     $username = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
+    $contact_number = trim($_POST['contact_number'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     $role = 'farmer'; // Fixed: only farmer accounts
 
-    if (!empty($fullname) && !empty($username) && !empty($email) && !empty($password)) {
+    if (!empty($fullname) && !empty($username) && !empty($email) && !empty($contact_number) && !empty($password)) {
         if ($password !== $confirm_password) {
             $message = "❌ Passwords do not match.";
         } else {
             $hashed_pw = password_hash($password, PASSWORD_BCRYPT);
             try {
-                $stmt = $conn->prepare("INSERT INTO users (fullname, username, email, password, role)
-                                        VALUES (:fullname, :username, :email, :password, :role)");
+                $stmt = $conn->prepare("INSERT INTO users (fullname, username, email, contact_number, password, role)
+                                        VALUES (:fullname, :username, :email, :contact_number, :password, :role)");
                 $stmt->execute([
                     ':fullname' => $fullname,
                     ':username' => $username,
                     ':email' => $email,
+                    ':contact_number' => $contact_number,
                     ':password' => $hashed_pw,
                     ':role' => $role
                 ]);
@@ -72,6 +74,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
             <div class="input-wrapper">
                 <input type="text" name="username" placeholder="Username" required>
+            </div>
+            <div class="input-wrapper">
+                <input type="text" name="contact_number" placeholder="Contact Number (e.g., 09XXXXXXXXX)" required>
             </div>
 
             <div class="input-wrapper password-wrapper">
