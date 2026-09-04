@@ -40,7 +40,7 @@ try {
 
 // 3. Fetch History Logs for Current Page with LIMIT and OFFSET
 try {
-    $stmtLogs = $conn->prepare("SELECT * FROM soil_readings ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+    $stmtLogs = $conn->prepare("SELECT * FROM soil_readings ORDER BY id DESC LIMIT :limit OFFSET :offset");
     $stmtLogs->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmtLogs->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmtLogs->execute();
@@ -269,7 +269,7 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
             </table>
         </div>
 
-<!-- Pagination Controls -->
+        <!-- Pagination Controls -->
         <?php if ($totalPages > 1): 
             // Preserve existing query parameters (like page/route) while updating history_page
             $params = $_GET;
