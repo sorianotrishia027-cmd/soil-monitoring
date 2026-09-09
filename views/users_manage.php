@@ -9,23 +9,33 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
+// ── Auto-add contact_number column if it doesn't exist yet ──────────────
+// This runs silently so no manual SQL needed on Railway
+try {
+    $conn->exec("ALTER TABLE users ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
+} catch (PDOException $e) {
+    // Column already exists — ignore
+}
+
 $action_msg = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
     $action = $_POST['form_action'];
 
+    // ── CREATE USER ────────────────────────────────────────────────────────
     if ($action === 'create_user') {
-        $username = trim($_POST['username'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $fullname = trim($_POST['fullname'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $role = $_POST['role'] ?? 'farmer';
+        $username       = trim($_POST['username']       ?? '');
+        $email          = trim($_POST['email']          ?? '');
+        $fullname       = trim($_POST['fullname']       ?? '');
+        $password       = $_POST['password']            ?? '';
+        $role           = $_POST['role']                ?? 'farmer';
+        $contact_number = trim($_POST['contact_number'] ?? '');
 
         if (!empty($username) && !empty($email) && !empty($password)) {
             try {
                 $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-                $stmt = $conn->prepare("INSERT INTO users (username, email, fullname, password, role) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$username, $email, $fullname, $hashed_password, $role]);
+                $stmt = $conn->prepare("INSERT INTO users (username, email, fullname, password, role, contact_number) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$username, $email, $fullname, $hashed_password, $role, $contact_number]);
                 $action_msg = "<div class='alert success'>Account for '$username' registered successfully.</div>";
             } catch (PDOException $e) {
                 $action_msg = "<div class='alert danger'>Registration error: " . $e->getMessage() . "</div>";
@@ -35,23 +45,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
         }
     }
 
+    // ── UPDATE USER ────────────────────────────────────────────────────────
     if ($action === 'update_user') {
-        $id = intval($_POST['user_id'] ?? 0);
-        $role = $_POST['role'] ?? 'farmer';
-        $fullname = trim($_POST['fullname'] ?? '');
+        $id             = intval($_POST['user_id']        ?? 0);
+        $role           = $_POST['role']                  ?? 'farmer';
+        $fullname       = trim($_POST['fullname']         ?? '');
+        $contact_number = trim($_POST['contact_number']   ?? '');
 
         try {
-            $stmt = $conn->prepare("UPDATE users SET role = ?, fullname = ? WHERE id = ?");
-            $stmt->execute([$role, $fullname, $id]);
+            $stmt = $conn->prepare("UPDATE users SET role = ?, fullname = ?, contact_number = ? WHERE id = ?");
+            $stmt->execute([$role, $fullname, $contact_number, $id]);
             $action_msg = "<div class='alert success'>Account updates applied successfully.</div>";
         } catch (PDOException $e) {
             $action_msg = "<div class='alert danger'>Update failed: " . $e->getMessage() . "</div>";
         }
     }
 
+    // ── DELETE USER ────────────────────────────────────────────────────────
     if ($action === 'delete_user') {
         $id = intval($_POST['user_id'] ?? 0);
-        
+
         if ($id === intval($_SESSION['user_id'])) {
             $action_msg = "<div class='alert danger'>Operational error: You cannot drop your own active root session profile.</div>";
         } else {
@@ -66,7 +79,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
     }
 }
 
-$users_list = $conn->query("SELECT id, username, email, fullname, role FROM users ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$users_list = $conn->query("SELECT id, username, email, fullname, role, contact_number FROM users ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <div class="sub-view-panel-container">
@@ -78,12 +91,13 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
     <?= $action_msg ?>
 
     <div class="insights-dashboard-split-row" style="margin-bottom: 30px;">
-        
+
+        <!-- Register New User Form -->
         <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc;">
             <h3 style="margin-bottom: 15px; color: var(--primary-color);">Register New User</h3>
             <form action="dashboard.php?page=users_manage" method="POST">
                 <input type="hidden" name="form_action" value="create_user">
-                
+
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="text" name="fullname" placeholder="Full Name (e.g. Juan Dela Cruz)">
                 </div>
@@ -93,10 +107,14 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="email" name="email" placeholder="Email Address" required>
                 </div>
+                <!-- ★ NEW: Contact Number field for SMS notifications -->
+                <div class="input-wrapper" style="background: #f4f6f4;">
+                    <input type="tel" name="contact_number" placeholder="Contact Number (e.g. 09XXXXXXXXX)" maxlength="20">
+                </div>
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="password" name="password" placeholder="Temporary Password" required>
                 </div>
-                
+
                 <div class="role-selection-group" style="margin-top: 10px; text-align: left;">
                     <span class="chip-label" style="display:block; margin-bottom: 5px;">Assigned Portal Scope:</span>
                     <div class="grid-two-columns">
@@ -113,11 +131,15 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
             </form>
         </div>
 
+        <!-- Operational Directives -->
         <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <h3 style="margin-bottom: 15px;">Operational Directives</h3>
                 <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted);">
                     When updating user details or removing old profiles, double-check profiles to maintain accurate data mapping. Deleting a farmer's account completely cleans up their assigned entries from the historical system.
+                </p>
+                <p style="font-size: 13px; line-height: 1.5; color: #0b8a47; margin-top: 12px;">
+                    📱 <strong>SMS Alerts:</strong> The contact number registered here will receive soil sensor SMS notifications from the ESP32 device automatically.
                 </p>
             </div>
             <div class="nested-sub-recommends-box" style="border-left-color: #1565c0; margin-top: 20px;">
@@ -127,6 +149,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
         </div>
     </div>
 
+    <!-- Registered Profiles Table -->
     <div class="view-panel-header">
         <h3>Registered Cooperative Profiles</h3>
     </div>
@@ -139,6 +162,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
                     <th style="padding: 12px;">Full Name</th>
                     <th style="padding: 12px;">Username</th>
                     <th style="padding: 12px;">Email</th>
+                    <th style="padding: 12px;">📱 Contact No.</th>
                     <th style="padding: 12px;">Role</th>
                     <th style="padding: 12px; text-align: center;">Actions</th>
                 </tr>
@@ -150,14 +174,24 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
                         <td style="padding: 12px; font-weight: 600;"><?= htmlspecialchars($row['fullname'] ?: 'No Name Provided') ?></td>
                         <td style="padding: 12px;"><?= htmlspecialchars($row['username']) ?></td>
                         <td style="padding: 12px; color: var(--text-muted);"><?= htmlspecialchars($row['email']) ?></td>
+                        <!-- ★ NEW: Show contact number with SMS badge -->
+                        <td style="padding: 12px;">
+                            <?php if (!empty($row['contact_number'])): ?>
+                                <span style="background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                    📱 <?= htmlspecialchars($row['contact_number']) ?>
+                                </span>
+                            <?php else: ?>
+                                <span style="color: #bbb; font-size: 12px;">— not set —</span>
+                            <?php endif; ?>
+                        </td>
                         <td style="padding: 12px;">
                             <span class="status-pill" style="background: <?= $row['role'] === 'admin' ? '#e3f2fd; color: #0d47a1;' : '#e8f5e9; color: #2e7d32;' ?>">
                                 <?= ucfirst(htmlspecialchars($row['role'])) ?>
                             </span>
                         </td>
                         <td style="padding: 12px; text-align: center;">
-                            <button class="status-pill" style="background: #e4ebe4; color: #333; border: none; cursor: pointer; padding: 5px 10px; margin-right: 4px;" 
-                                    onclick="openEditUserModal(<?= $row['id'] ?>, '<?= addslashes($row['fullname']) ?>', '<?= $row['role'] ?>')">
+                            <button class="status-pill" style="background: #e4ebe4; color: #333; border: none; cursor: pointer; padding: 5px 10px; margin-right: 4px;"
+                                    onclick="openEditUserModal(<?= $row['id'] ?>, '<?= addslashes($row['fullname']) ?>', '<?= $row['role'] ?>', '<?= addslashes($row['contact_number'] ?? '') ?>')">
                                 Edit
                             </button>
                             <form action="dashboard.php?page=users_manage" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to completely delete this user row record?');">
@@ -175,18 +209,25 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
     </div>
 </div>
 
+<!-- Edit User Modal -->
 <div id="editUserModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
     <div class="action-alert-panel-card" style="background: #ffffff; max-width: 400px; width: 90%; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); padding: 30px;">
         <h3 style="margin-bottom: 15px; color: var(--primary-color);">Update User Profile</h3>
         <form action="dashboard.php?page=users_manage" method="POST">
             <input type="hidden" name="form_action" value="update_user">
             <input type="hidden" name="user_id" id="modal_user_id">
-            
+
             <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px;">Display Full Name:</label>
             <div class="input-wrapper" style="background: #f4f6f4;">
                 <input type="text" name="fullname" id="modal_fullname" placeholder="Full Name" required>
             </div>
-            
+
+            <!-- ★ NEW: Contact number in edit modal -->
+            <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">📱 Contact Number (for SMS):</label>
+            <div class="input-wrapper" style="background: #f4f6f4;">
+                <input type="tel" name="contact_number" id="modal_contact_number" placeholder="09XXXXXXXXX" maxlength="20">
+            </div>
+
             <div class="role-selection-group" style="margin-top: 15px; text-align: left;">
                 <span class="chip-label" style="display:block; margin-bottom: 5px;">System Security Privilege:</span>
                 <div class="grid-two-columns">
@@ -208,16 +249,17 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role FROM user
 </div>
 
 <script>
-function openEditUserModal(id, fullname, role) {
+function openEditUserModal(id, fullname, role, contact_number) {
     document.getElementById('modal_user_id').value = id;
     document.getElementById('modal_fullname').value = fullname;
-    
+    document.getElementById('modal_contact_number').value = contact_number;
+
     if (role.toLowerCase() === 'admin') {
         document.getElementById('modal_role_admin').checked = true;
     } else {
         document.getElementById('modal_role_farmer').checked = true;
     }
-    
+
     document.getElementById('editUserModal').style.display = 'flex';
 }
 
