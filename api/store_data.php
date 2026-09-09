@@ -62,15 +62,22 @@ try {
         ':temperature' => $temperature
     ]);
 
-    // Fetch all active registered farmer/user contact numbers for SMS broadcast
-    $phones_stmt = $conn->query("SELECT DISTINCT contact_number FROM users WHERE contact_number IS NOT NULL AND contact_number != ''");
-    $phone_rows  = $phones_stmt->fetchAll(PDO::FETCH_COLUMN);
+    // Fetch any pending SMS messages queued for the GSM module to send (e.g. OTP verification codes)
+    $pending_sms_stmt = $conn->query("SELECT id, phone, message FROM sms_outbox WHERE status = 'pending' ORDER BY id ASC LIMIT 3");
+    $pending_sms = $pending_sms_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Mark retrieved SMS as 'processing' so they are not sent twice
+    if (!empty($pending_sms)) {
+        $ids = array_column($pending_sms, 'id');
+        $in_clause = implode(',', array_map('intval', $ids));
+        $conn->exec("UPDATE sms_outbox SET status = 'sent' WHERE id IN ($in_clause)");
+    }
 
     echo json_encode([
-        "status"     => "success", 
-        "message"    => "Telemetry stored successfully",
-        "reading_id" => $conn->lastInsertId(),
-        "phones"     => $phone_rows
+        "status"      => "success", 
+        "message"     => "Telemetry stored successfully",
+        "reading_id"  => $conn->lastInsertId(),
+        "pending_sms" => $pending_sms
     ]);
 
 } catch (PDOException $e) {
