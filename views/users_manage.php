@@ -9,8 +9,7 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
-// ── Auto-add contact_number column if it doesn't exist yet ──────────────
-// This runs silently so no manual SQL needed on Railway
+// Auto-add contact_number column if it doesn't exist yet (no manual SQL needed)
 try {
     $conn->exec("ALTER TABLE users ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
 } catch (PDOException $e) {
@@ -22,7 +21,7 @@ $action_msg = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
     $action = $_POST['form_action'];
 
-    // ── CREATE USER ────────────────────────────────────────────────────────
+    // CREATE USER
     if ($action === 'create_user') {
         $username       = trim($_POST['username']       ?? '');
         $email          = trim($_POST['email']          ?? '');
@@ -45,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
         }
     }
 
-    // ── UPDATE USER ────────────────────────────────────────────────────────
+    // UPDATE USER
     if ($action === 'update_user') {
         $id             = intval($_POST['user_id']        ?? 0);
         $role           = $_POST['role']                  ?? 'farmer';
@@ -61,7 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
         }
     }
 
-    // ── DELETE USER ────────────────────────────────────────────────────────
+    // DELETE USER
     if ($action === 'delete_user') {
         $id = intval($_POST['user_id'] ?? 0);
 
@@ -107,7 +106,6 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="email" name="email" placeholder="Email Address" required>
                 </div>
-                <!-- ★ NEW: Contact Number field for SMS notifications -->
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="tel" name="contact_number" placeholder="Contact Number (e.g. 09XXXXXXXXX)" maxlength="20">
                 </div>
@@ -138,7 +136,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted);">
                     When updating user details or removing old profiles, double-check profiles to maintain accurate data mapping. Deleting a farmer's account completely cleans up their assigned entries from the historical system.
                 </p>
-                <p style="font-size: 13px; line-height: 1.5; color: #0b8a47; margin-top: 12px;">
+                <p style="font-size: 13px; line-height: 1.6; color: #0b8a47; margin-top: 12px;">
                     📱 <strong>SMS Alerts:</strong> The contact number registered here will receive soil sensor SMS notifications from the ESP32 device automatically.
                 </p>
             </div>
@@ -174,7 +172,6 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                         <td style="padding: 12px; font-weight: 600;"><?= htmlspecialchars($row['fullname'] ?: 'No Name Provided') ?></td>
                         <td style="padding: 12px;"><?= htmlspecialchars($row['username']) ?></td>
                         <td style="padding: 12px; color: var(--text-muted);"><?= htmlspecialchars($row['email']) ?></td>
-                        <!-- ★ NEW: Show contact number with SMS badge -->
                         <td style="padding: 12px;">
                             <?php if (!empty($row['contact_number'])): ?>
                                 <span style="background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">
@@ -222,7 +219,6 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <input type="text" name="fullname" id="modal_fullname" placeholder="Full Name" required>
             </div>
 
-            <!-- ★ NEW: Contact number in edit modal -->
             <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">📱 Contact Number (for SMS):</label>
             <div class="input-wrapper" style="background: #f4f6f4;">
                 <input type="tel" name="contact_number" id="modal_contact_number" placeholder="09XXXXXXXXX" maxlength="20">

@@ -62,10 +62,15 @@ try {
         ':temperature' => $temperature
     ]);
 
+    // Fetch all active registered farmer/user contact numbers for SMS broadcast
+    $phones_stmt = $conn->query("SELECT DISTINCT contact_number FROM users WHERE contact_number IS NOT NULL AND contact_number != ''");
+    $phone_rows  = $phones_stmt->fetchAll(PDO::FETCH_COLUMN);
+
     echo json_encode([
         "status"     => "success", 
         "message"    => "Telemetry stored successfully",
-        "reading_id" => $conn->lastInsertId()
+        "reading_id" => $conn->lastInsertId(),
+        "phones"     => $phone_rows
     ]);
 
 } catch (PDOException $e) {
