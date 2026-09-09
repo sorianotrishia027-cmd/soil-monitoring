@@ -9,19 +9,17 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
-// Auto-add contact_number column if it doesn't exist yet (no manual SQL needed)
+// Auto-add contact_number column if it doesn't exist yet
 try {
     $conn->exec("ALTER TABLE users ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
-} catch (PDOException $e) {
-    // Column already exists — ignore
-}
+} catch (PDOException $e) {}
 
 $action_msg = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
     $action = $_POST['form_action'];
 
-    // CREATE USER
+    // CREATE USER (with OTP verification check)
     if ($action === 'create_user') {
         $username       = trim($_POST['username']       ?? '');
         $email          = trim($_POST['email']          ?? '');
@@ -29,13 +27,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
         $password       = $_POST['password']            ?? '';
         $role           = $_POST['role']                ?? 'farmer';
         $contact_number = trim($_POST['contact_number'] ?? '');
+        $is_verified    = isset($_POST['is_otp_verified']) && $_POST['is_otp_verified'] === '1';
 
-        if (!empty($username) && !empty($email) && !empty($password)) {
+        if (!empty($contact_number) && !$is_verified) {
+            $action_msg = "<div class='alert danger'>⚠ Phone Number Not Verified. Please send and enter SMS Verification OTP code first before creating account.</div>";
+        } elseif (!empty($username) && !empty($email) && !empty($password)) {
             try {
                 $hashed_password = password_hash($password, PASSWORD_BCRYPT);
                 $stmt = $conn->prepare("INSERT INTO users (username, email, fullname, password, role, contact_number) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$username, $email, $fullname, $hashed_password, $role, $contact_number]);
-                $action_msg = "<div class='alert success'>Account for '$username' registered successfully.</div>";
+                $action_msg = "<div class='alert success'>✅ Account for '$username' registered successfully after Phone Verification!</div>";
+                unset($_SESSION['otp_verified']); // Reset verification status
             } catch (PDOException $e) {
                 $action_msg = "<div class='alert danger'>Registration error: " . $e->getMessage() . "</div>";
             }
@@ -91,11 +93,12 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
 
     <div class="insights-dashboard-split-row" style="margin-bottom: 30px;">
 
-        <!-- Register New User Form -->
+        <!-- Register New User Form with SMS OTP Verification -->
         <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc;">
             <h3 style="margin-bottom: 15px; color: var(--primary-color);">Register New User</h3>
-            <form action="dashboard.php?page=users_manage" method="POST">
+            <form action="dashboard.php?page=users_manage" method="POST" id="registerForm">
                 <input type="hidden" name="form_action" value="create_user">
+                <input type="hidden" name="is_otp_verified" id="is_otp_verified" value="0">
 
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="text" name="fullname" placeholder="Full Name (e.g. Juan Dela Cruz)">
@@ -106,10 +109,32 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <div class="input-wrapper" style="background: #f4f6f4;">
                     <input type="email" name="email" placeholder="Email Address" required>
                 </div>
-                <div class="input-wrapper" style="background: #f4f6f4;">
-                    <input type="tel" name="contact_number" placeholder="Contact Number (e.g. 09XXXXXXXXX)" maxlength="20">
+
+                <!-- Contact Number & Send OTP Button -->
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <div class="input-wrapper" style="background: #f4f6f4; flex: 1;">
+                        <input type="tel" name="contact_number" id="reg_contact_number" placeholder="Contact Number (e.g. 09XXXXXXXXX)" maxlength="20" required>
+                    </div>
+                    <button type="button" onclick="sendOtpCode()" id="btn_send_otp" style="padding: 10px 14px; background: #0b8a47; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                        Send OTP 📱
+                    </button>
                 </div>
-                <div class="input-wrapper" style="background: #f4f6f4;">
+
+                <!-- OTP Input Step (Hidden initially) -->
+                <div id="otp_container" style="display: none; margin-top: 10px; background: #e8f5e9; padding: 12px; border-radius: 10px; border: 1px solid #a5d6a7;">
+                    <span style="font-size: 12px; color: #2e7d32; font-weight: 600; display: block; margin-bottom: 6px;">
+                        🔑 Enter 6-digit SMS OTP Code sent to phone:
+                    </span>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="input_otp_code" placeholder="6-Digit Code" maxlength="6" style="padding: 8px 12px; border: 1px solid #81c784; border-radius: 6px; font-weight: bold; width: 120px; text-align: center; font-size: 16px;">
+                        <button type="button" onclick="verifyOtpCode()" id="btn_verify_otp" style="padding: 8px 14px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                            Verify Code
+                        </button>
+                    </div>
+                    <div id="otp_status_msg" style="font-size: 12px; margin-top: 6px;"></div>
+                </div>
+
+                <div class="input-wrapper" style="background: #f4f6f4; margin-top: 10px;">
                     <input type="password" name="password" placeholder="Temporary Password" required>
                 </div>
 
@@ -125,7 +150,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                     </div>
                 </div>
 
-                <button type="submit" class="mockup-login-btn" style="margin-top: 10px;">Provision Account</button>
+                <button type="submit" class="mockup-login-btn" style="margin-top: 10px;" id="btn_submit_account">Provision Account</button>
             </form>
         </div>
 
@@ -137,7 +162,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                     When updating user details or removing old profiles, double-check profiles to maintain accurate data mapping. Deleting a farmer's account completely cleans up their assigned entries from the historical system.
                 </p>
                 <p style="font-size: 13px; line-height: 1.6; color: #0b8a47; margin-top: 12px;">
-                    📱 <strong>SMS Alerts:</strong> The contact number registered here will receive soil sensor SMS notifications from the ESP32 device automatically.
+                    📱 <strong>SMS OTP Security:</strong> New accounts require a 6-digit SMS verification code to be sent and verified before provisioning.
                 </p>
             </div>
             <div class="nested-sub-recommends-box" style="border-left-color: #1565c0; margin-top: 20px;">
@@ -219,7 +244,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <input type="text" name="fullname" id="modal_fullname" placeholder="Full Name" required>
             </div>
 
-            <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">📱 Contact Number (for SMS):</label>
+            <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">📱 Contact Number:</label>
             <div class="input-wrapper" style="background: #f4f6f4;">
                 <input type="tel" name="contact_number" id="modal_contact_number" placeholder="09XXXXXXXXX" maxlength="20">
             </div>
@@ -245,6 +270,74 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
 </div>
 
 <script>
+function sendOtpCode() {
+    const phone = document.getElementById('reg_contact_number').value.trim();
+    if (!phone) {
+        alert('Please enter contact number first.');
+        return;
+    }
+
+    const btn = document.getElementById('btn_send_otp');
+    btn.disabled = true;
+    btn.innerText = 'Sending...';
+
+    const formData = new FormData();
+    formData.append('phone', phone);
+
+    fetch('api/send_otp.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = 'Resend OTP';
+
+        if (data.status === 'success') {
+            document.getElementById('otp_container').style.display = 'block';
+            document.getElementById('otp_status_msg').innerHTML = `<span style="color:#2e7d32;">✅ Code sent! (Testing Code: <strong>${data.demo_code}</strong>)</span>`;
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerText = 'Send OTP 📱';
+        alert('Error requesting OTP verification code.');
+    });
+}
+
+function verifyOtpCode() {
+    const code = document.getElementById('input_otp_code').value.trim();
+    if (!code || code.length !== 6) {
+        alert('Please enter valid 6-digit OTP code.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('otp_code', code);
+
+    fetch('api/verify_otp.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        const msgDiv = document.getElementById('otp_status_msg');
+        if (data.status === 'success') {
+            msgDiv.innerHTML = `<span style="color:#2e7d32; font-weight:bold;">✅ Phone Number Verified! You can now submit account form.</span>`;
+            document.getElementById('is_otp_verified').value = '1';
+            document.getElementById('reg_contact_number').readOnly = true;
+            document.getElementById('btn_send_otp').style.display = 'none';
+        } else {
+            msgDiv.innerHTML = `<span style="color:#c62828;">❌ ${data.message}</span>`;
+        }
+    })
+    .catch(err => {
+        alert('Error verifying OTP code.');
+    });
+}
+
 function openEditUserModal(id, fullname, role, contact_number) {
     document.getElementById('modal_user_id').value = id;
     document.getElementById('modal_fullname').value = fullname;
