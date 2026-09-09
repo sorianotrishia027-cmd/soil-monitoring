@@ -254,7 +254,7 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
             <p style="color: #657765; font-size: 0.9rem; margin: 0;">Logged field readings evaluated against optimal agricultural thresholds.</p>
         </div>
         <div style="background: #e8f5e9; color: #2e7d32; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 12px; white-space: nowrap;" id="soil-live-badge">
-            ● 30-Min Interval Logging Active
+            ● 15-Min Interval Logging Active
         </div>
     </div>
 
