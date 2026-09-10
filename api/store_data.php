@@ -6,24 +6,24 @@ require_once '../config/db_connect.php';
 // Define your secret key matching your ESP32 payload
 define("ESP32_SECRET_KEY", "SCC_AGRI_SECRET_KEY_2026");
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+if ($_SERVER["REQUEST_METHOD"] !== "POST" && $_SERVER["REQUEST_METHOD"] !== "GET") {
     http_response_code(405);
-    echo json_encode(["status" => "error", "message" => "Only POST requests allowed"]);
+    echo json_encode(["status" => "error", "message" => "Only GET or POST requests allowed"]);
     exit;
 }
 
-// 1. Support both JSON payload and standard $_POST form data
+// 1. Support JSON payload, $_POST, and $_GET query parameters
 $raw_input = file_get_contents("php://input");
 $json_data = json_decode($raw_input, true) ?? [];
 
-$api_key     = $_POST['api_key'] ?? $json_data['api_key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
-$device_id   = $_POST['device_id'] ?? $json_data['device_id'] ?? 'ESP32_DEFAULT';
-$moisture    = $_POST['moisture'] ?? $json_data['moisture'] ?? null;
-$ph          = $_POST['ph'] ?? $json_data['ph'] ?? null;
-$nitrogen    = $_POST['nitrogen'] ?? $json_data['nitrogen'] ?? null;
-$phosphorus  = $_POST['phosphorus'] ?? $json_data['phosphorus'] ?? null;
-$potassium   = $_POST['potassium'] ?? $json_data['potassium'] ?? null;
-$temperature = $_POST['temperature'] ?? $json_data['temperature'] ?? null;
+$api_key     = $_REQUEST['api_key']     ?? $json_data['api_key']     ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
+$device_id   = $_REQUEST['device_id']   ?? $json_data['device_id']   ?? 'ESP32_DEFAULT';
+$moisture    = $_REQUEST['moisture']    ?? $json_data['moisture']    ?? null;
+$ph          = $_REQUEST['ph']          ?? $json_data['ph']          ?? null;
+$nitrogen    = $_REQUEST['nitrogen']    ?? $json_data['nitrogen']    ?? null;
+$phosphorus  = $_REQUEST['phosphorus']  ?? $json_data['phosphorus']  ?? null;
+$potassium   = $_REQUEST['potassium']   ?? $json_data['potassium']   ?? null;
+$temperature = $_REQUEST['temperature'] ?? $json_data['temperature'] ?? null;
 
 // 2. Validate API Key
 if ($api_key !== ESP32_SECRET_KEY) {
