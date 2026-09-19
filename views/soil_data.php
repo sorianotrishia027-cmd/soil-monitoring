@@ -86,6 +86,11 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
 
 <style>
 /* Responsive layout styles & Google-style pagination */
+@keyframes livePulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(46, 125, 50, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 125, 50, 0); }
+}
 .soil-data-wrapper {
     padding: 15px 10px;
     font-family: inherit;
@@ -253,18 +258,19 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
             <h3 style="color: var(--primary-color, #2e7d32); font-weight: 700; font-size: 1.4rem; margin-bottom: 4px;">My Soil Telemetry & Analysis</h3>
             <p style="color: #657765; font-size: 0.9rem; margin: 0;">Logged field readings evaluated against optimal agricultural thresholds.</p>
         </div>
-        <div style="background: #e8f5e9; color: #2e7d32; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 12px; white-space: nowrap;" id="soil-live-badge">
-            ● 15-Min Interval Logging Active
+        <div style="background: #e8f5e9; color: #1b5e20; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 8px; border: 1px solid #c8e6c9;" id="soil-live-badge">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #2e7d32; box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7); animation: livePulse 1.8s infinite;"></span>
+            LIVE REAL-TIME STREAM
         </div>
     </div>
 
     <!-- Live Telemetry Metric Cards -->
     <div class="soil-metrics-grid">
         <!-- Moisture Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $mStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-moisture" style="border-left: 5px solid <?= $mStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">Soil Moisture</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $mStyle['color'] ?>15; color: <?= $mStyle['color'] ?>;"><?= $mStyle['status'] ?></span>
+                <span id="soil-status-moisture" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $mStyle['color'] ?>15; color: <?= $mStyle['color'] ?>;"><?= $mStyle['status'] ?></span>
             </div>
             <h2 style="margin: 5px 0; color: <?= $mStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-moisture">
                 <?= $valMoisture !== null ? htmlspecialchars(number_format(floatval($valMoisture), 1)) . '%' : '--' ?>
@@ -273,10 +279,10 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
         </div>
 
         <!-- pH Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $phStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-ph" style="border-left: 5px solid <?= $phStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">pH Level</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $phStyle['color'] ?>15; color: <?= $phStyle['color'] ?>;"><?= $phStyle['status'] ?></span>
+                <span id="soil-status-ph" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $phStyle['color'] ?>15; color: <?= $phStyle['color'] ?>;"><?= $phStyle['status'] ?></span>
             </div>
             <h2 style="margin: 5px 0; color: <?= $phStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-ph">
                 <?= $valPh !== null ? htmlspecialchars(number_format(floatval($valPh), 1)) : '--' ?>
@@ -285,46 +291,52 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
         </div>
 
         <!-- Nitrogen Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $nStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-n" style="border-left: 5px solid <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $nStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">Nitrogen (N)</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $nStyle['color'] ?>15; color: <?= $nStyle['color'] ?>;"><?= $nStyle['status'] ?></span>
+                <span id="soil-status-n" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d15' : $nStyle['color'].'15' ?>; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $nStyle['color'] ?>;">
+                    <?= ($valN == 0 && $valP == 0 && $valK == 0) ? 'No Response' : $nStyle['status'] ?>
+                </span>
             </div>
-            <h2 style="margin: 5px 0; color: <?= $nStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-n">
+            <h2 style="margin: 5px 0; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $nStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-n">
                 <?= $valN !== null ? htmlspecialchars($valN) : '--' ?> <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>
             </h2>
             <span style="font-size: 0.75rem; color: #888;">Target: 20 - 50</span>
         </div>
 
         <!-- Phosphorus Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $pStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-p" style="border-left: 5px solid <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $pStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">Phosphorus (P)</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $pStyle['color'] ?>15; color: <?= $pStyle['color'] ?>;"><?= $pStyle['status'] ?></span>
+                <span id="soil-status-p" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d15' : $pStyle['color'].'15' ?>; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $pStyle['color'] ?>;">
+                    <?= ($valN == 0 && $valP == 0 && $valK == 0) ? 'No Response' : $pStyle['status'] ?>
+                </span>
             </div>
-            <h2 style="margin: 5px 0; color: <?= $pStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-p">
+            <h2 style="margin: 5px 0; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $pStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-p">
                 <?= $valP !== null ? htmlspecialchars($valP) : '--' ?> <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>
             </h2>
             <span style="font-size: 0.75rem; color: #888;">Target: 10 - 30</span>
         </div>
 
         <!-- Potassium Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $kStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-k" style="border-left: 5px solid <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $kStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">Potassium (K)</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $kStyle['color'] ?>15; color: <?= $kStyle['color'] ?>;"><?= $kStyle['status'] ?></span>
+                <span id="soil-status-k" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d15' : $kStyle['color'].'15' ?>; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $kStyle['color'] ?>;">
+                    <?= ($valN == 0 && $valP == 0 && $valK == 0) ? 'No Response' : $kStyle['status'] ?>
+                </span>
             </div>
-            <h2 style="margin: 5px 0; color: <?= $kStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-k">
+            <h2 style="margin: 5px 0; color: <?= ($valN == 0 && $valP == 0 && $valK == 0) ? '#6c757d' : $kStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-k">
                 <?= $valK !== null ? htmlspecialchars($valK) : '--' ?> <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>
             </h2>
             <span style="font-size: 0.75rem; color: #888;">Target: 15 - 50</span>
         </div>
 
         <!-- Temperature Card -->
-        <div class="soil-metric-card" style="border-left: 5px solid <?= $tStyle['border'] ?>;">
+        <div class="soil-metric-card" id="soil-card-temp" style="border-left: 5px solid <?= $tStyle['border'] ?>;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: #657765; font-weight: 700;">Temperature</span>
-                <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $tStyle['color'] ?>15; color: <?= $tStyle['color'] ?>;"><?= $tStyle['status'] ?></span>
+                <span id="soil-status-temp" style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: <?= $tStyle['color'] ?>15; color: <?= $tStyle['color'] ?>;"><?= $tStyle['status'] ?></span>
             </div>
             <h2 style="margin: 5px 0; color: <?= $tStyle['color'] ?>; font-size: 1.6rem;" id="soil-val-temp">
                 <?= $valTemp !== null ? htmlspecialchars(number_format(floatval($valTemp), 1)) . '°C' : '--' ?>
@@ -469,3 +481,114 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
         <?php endif; ?>
     </div>
 </div>
+
+<!-- Real-Time Telemetry Live Polling & DOM Updater (No Page Refresh Required) -->
+<script>
+(function() {
+    let lastReadingId = <?= $latest['id'] ?? 0 ?>;
+
+    function getHealthStatus(val, min, max, unit = '') {
+        if (val === null || isNaN(val)) {
+            return { color: '#6c757d', border: '#6c757d', status: 'No Data' };
+        }
+        const num = parseFloat(val);
+        if (num < min) {
+            return { color: '#dc3545', border: '#dc3545', status: 'Critical (Low)' };
+        } else if (num > max) {
+            return { color: '#e65100', border: '#ff9800', status: 'Warning (High)' };
+        } else {
+            return { color: '#198754', border: '#198754', status: 'Optimal' };
+        }
+    }
+
+    function updateCard(cardId, statusId, valId, valueText, style) {
+        const card = document.getElementById(cardId);
+        const statusEl = document.getElementById(statusId);
+        const valEl = document.getElementById(valId);
+
+        if (card) card.style.borderLeft = `5px solid ${style.border}`;
+        if (statusEl) {
+            statusEl.innerText = style.status;
+            statusEl.style.color = style.color;
+            statusEl.style.backgroundColor = style.color + '15';
+        }
+        if (valEl) {
+            valEl.innerHTML = valueText;
+            valEl.style.color = style.color;
+        }
+    }
+
+    function fetchLiveTelemetry() {
+        fetch('api/get_live_telemetry.php?_=' + Date.now())
+            .then(res => res.json())
+            .then(res => {
+                if (res.status !== 'success' || !res.data) return;
+                const d = res.data;
+
+                // 1. Calculate Statuses
+                const mStyle = getHealthStatus(d.moisture, 30, 60);
+                const phStyle = getHealthStatus(d.ph, 5.0, 7.5);
+                const tStyle = getHealthStatus(d.temperature, 20, 32);
+
+                // 2. Update Moisture, pH, Temp
+                updateCard('soil-card-moisture', 'soil-status-moisture', 'soil-val-moisture', 
+                    d.moisture !== null ? (parseFloat(d.moisture).toFixed(1) + '%') : '--', mStyle);
+
+                updateCard('soil-card-ph', 'soil-status-ph', 'soil-val-ph', 
+                    d.ph !== null ? parseFloat(d.ph).toFixed(1) : '--', phStyle);
+
+                updateCard('soil-card-temp', 'soil-status-temp', 'soil-val-temp', 
+                    d.temperature !== null ? (parseFloat(d.temperature).toFixed(1) + '°C') : '--', tStyle);
+
+                // 3. Update NPK (Handle Pure Hardware vs No Response)
+                if (d.npk_online) {
+                    const nStyle = getHealthStatus(d.nitrogen, 20, 50);
+                    const pStyle = getHealthStatus(d.phosphorus, 10, 30);
+                    const kStyle = getHealthStatus(d.potassium, 15, 50);
+
+                    updateCard('soil-card-n', 'soil-status-n', 'soil-val-n', 
+                        `${d.nitrogen} <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, nStyle);
+                    updateCard('soil-card-p', 'soil-status-p', 'soil-val-p', 
+                        `${d.phosphorus} <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, pStyle);
+                    updateCard('soil-card-k', 'soil-status-k', 'soil-val-k', 
+                        `${d.potassium} <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, kStyle);
+                } else {
+                    const offStyle = { color: '#6c757d', border: '#6c757d', status: 'No Response' };
+                    updateCard('soil-card-n', 'soil-status-n', 'soil-val-n', 
+                        `0 <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, offStyle);
+                    updateCard('soil-card-p', 'soil-status-p', 'soil-val-p', 
+                        `0 <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, offStyle);
+                    updateCard('soil-card-k', 'soil-status-k', 'soil-val-k', 
+                        `0 <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, offStyle);
+                }
+
+                // 4. Inject new row into Recent Telemetry History table if a new reading arrived
+                if (d.id && d.id !== lastReadingId) {
+                    lastReadingId = d.id;
+                    const tbody = document.querySelector('.soil-table tbody');
+                    if (tbody) {
+                        const newRow = document.createElement('tr');
+                        newRow.style.backgroundColor = '#e8f5e9';
+                        newRow.style.transition = 'background-color 2s ease';
+                        newRow.innerHTML = `
+                            <td style="color: #556b55;">${d.formatted_time}</td>
+                            <td style="font-weight: 600; color: ${mStyle.color};">${parseFloat(d.moisture).toFixed(1)}%</td>
+                            <td style="font-weight: 600; color: ${phStyle.color};">${parseFloat(d.ph).toFixed(1)}</td>
+                            <td style="color: #2c3e2c;">${d.nitrogen} mg/kg</td>
+                            <td style="color: #2c3e2c;">${d.phosphorus} mg/kg</td>
+                            <td style="color: #2c3e2c;">${d.potassium} mg/kg</td>
+                            <td style="color: #2c3e2c;">${parseFloat(d.temperature).toFixed(1)}°C</td>
+                        `;
+                        tbody.insertBefore(newRow, tbody.firstChild);
+                        setTimeout(() => { newRow.style.backgroundColor = ''; }, 2500);
+                    }
+                }
+            })
+            .catch(err => console.debug('Live telemetry fetch check:', err));
+    }
+
+    // Run immediately and stream every 2 seconds
+    fetchLiveTelemetry();
+    setInterval(fetchLiveTelemetry, 2000);
+})();
+</script>
