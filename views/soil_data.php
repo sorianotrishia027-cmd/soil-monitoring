@@ -393,7 +393,7 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
                 <h4 style="margin: 0; color: #2c3e2c; font-size: 1.05rem; font-weight: 600;">📋 Recent Telemetry History Logs</h4>
                 <p style="color: #657765; font-size: 0.85rem; margin: 2px 0 0;">Automatic records logged from field sensors.</p>
             </div>
-            <div style="font-size: 0.82rem; color: #657765; font-weight: 500;">
+            <div style="font-size: 0.82rem; color: #657765; font-weight: 500;" id="soil-history-page-info">
                 Page <?= $page ?> of <?= max(1, $totalPages) ?> (Total: <?= $totalRows ?>)
             </div>
         </div>
@@ -411,7 +411,7 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
                         <th>Temperature</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="soil-history-tbody">
                     <?php if (!empty($historyLogs)): ?>
                         <?php foreach ($historyLogs as $log): ?>
                             <?php 
@@ -562,25 +562,47 @@ $tStyle = getStatusStyle($valTemp, 20, 32);
                         `0 <span style="font-size: 0.8rem; font-weight: normal;">mg/kg</span>`, offStyle);
                 }
 
-                // 4. Inject new row into Recent Telemetry History table if a new reading arrived
+                // 4. Real-time sync for Recent Telemetry History table if a new reading arrived
                 if (d.id && d.id !== lastReadingId) {
                     lastReadingId = d.id;
-                    const tbody = document.querySelector('.soil-table tbody');
-                    if (tbody) {
-                        const newRow = document.createElement('tr');
-                        newRow.style.backgroundColor = '#e8f5e9';
-                        newRow.style.transition = 'background-color 2s ease';
-                        newRow.innerHTML = `
-                            <td style="color: #556b55;">${d.formatted_time}</td>
-                            <td style="font-weight: 600; color: ${mStyle.color};">${parseFloat(d.moisture).toFixed(1)}%</td>
-                            <td style="font-weight: 600; color: ${phStyle.color};">${parseFloat(d.ph).toFixed(1)}</td>
-                            <td style="color: #2c3e2c;">${d.nitrogen} mg/kg</td>
-                            <td style="color: #2c3e2c;">${d.phosphorus} mg/kg</td>
-                            <td style="color: #2c3e2c;">${d.potassium} mg/kg</td>
-                            <td style="color: #2c3e2c;">${parseFloat(d.temperature).toFixed(1)}°C</td>
-                        `;
-                        tbody.insertBefore(newRow, tbody.firstChild);
-                        setTimeout(() => { newRow.style.backgroundColor = ''; }, 2500);
+
+                    const tbody = document.getElementById('soil-history-tbody') || document.querySelector('.soil-table tbody');
+                    const pageInfoEl = document.getElementById('soil-history-page-info');
+                    const isPageOne = (!window.location.search.includes('history_page') || window.location.search.includes('history_page=1'));
+
+                    // Update total count indicator
+                    if (res.total_count && pageInfoEl) {
+                        const totalPages = Math.max(1, Math.ceil(res.total_count / 15));
+                        const curPage = <?= $page ?>;
+                        pageInfoEl.innerText = `Page ${curPage} of ${totalPages} (Total: ${res.total_count})`;
+                    }
+
+                    // On Page 1: dynamically re-render the 15 records in the table smoothly with highlight
+                    if (isPageOne && tbody && res.recent_logs && res.recent_logs.length > 0) {
+                        let html = '';
+                        res.recent_logs.forEach((log, index) => {
+                            const rMStyle = getHealthStatus(log.moisture, 30, 60);
+                            const rPhStyle = getHealthStatus(log.ph, 5.0, 7.5);
+                            const isNewTop = (index === 0);
+                            html += `
+                                <tr style="${isNewTop ? 'background-color: #e8f5e9; transition: background-color 2.5s ease;' : ''}">
+                                    <td style="color: #556b55;">${log.formatted_time}</td>
+                                    <td style="font-weight: 600; color: ${rMStyle.color};">${parseFloat(log.moisture).toFixed(1)}%</td>
+                                    <td style="font-weight: 600; color: ${rPhStyle.color};">${parseFloat(log.ph).toFixed(1)}</td>
+                                    <td style="color: #2c3e2c;">${log.nitrogen} mg/kg</td>
+                                    <td style="color: #2c3e2c;">${log.phosphorus} mg/kg</td>
+                                    <td style="color: #2c3e2c;">${log.potassium} mg/kg</td>
+                                    <td style="color: #2c3e2c;">${parseFloat(log.temperature).toFixed(1)}°C</td>
+                                </tr>
+                            `;
+                        });
+                        tbody.innerHTML = html;
+
+                        // Fade top row back to normal after 2.5 seconds
+                        const firstRow = tbody.firstElementChild;
+                        if (firstRow) {
+                            setTimeout(() => { firstRow.style.backgroundColor = ''; }, 2500);
+                        }
                     }
                 }
             })

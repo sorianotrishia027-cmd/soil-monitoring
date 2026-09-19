@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     const displayDiv = document.getElementById("data-display");
+    if (!displayDiv) return; // Prevent errors on dashboard views
 
     function fetchSoilData() {
         fetch("api/get_data.php")

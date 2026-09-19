@@ -41,6 +41,26 @@ try {
         $chartData[] = floatval($row['moisture']);
     }
 
+    // Fetch last 15 readings for real-time history table sync
+    $logsStmt = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 15");
+    $recentLogs = $logsStmt ? $logsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    $formattedLogs = [];
+    foreach ($recentLogs as $log) {
+        $formattedLogs[] = [
+            'id'             => (int)$log['id'],
+            'created_at'     => $log['created_at'] ?? '',
+            'formatted_time' => isset($log['created_at']) ? date("M j, Y - g:i A", strtotime($log['created_at'])) : 'N/A',
+            'moisture'       => floatval($log['moisture'] ?? 0),
+            'ph'             => floatval($log['ph'] ?? 0),
+            'nitrogen'       => intval($log['nitrogen'] ?? 0),
+            'phosphorus'     => intval($log['phosphorus'] ?? 0),
+            'potassium'      => intval($log['potassium'] ?? 0),
+            'temperature'    => floatval($log['temperature'] ?? 0)
+        ];
+    }
+
+    $totalCount = (int)$conn->query("SELECT COUNT(*) FROM soil_readings")->fetchColumn();
+
     echo json_encode([
         "status" => "success",
         "data" => [
@@ -57,7 +77,9 @@ try {
             "formatted_time" => $formattedTime,
             "chart_labels"   => $chartLabels,
             "chart_data"     => $chartData
-        ]
+        ],
+        "recent_logs" => $formattedLogs,
+        "total_count" => $totalCount
     ]);
 } catch (PDOException $e) {
     http_response_code(500);
