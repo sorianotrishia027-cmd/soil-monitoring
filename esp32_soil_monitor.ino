@@ -29,15 +29,17 @@ uint16_t liveN = 0, liveP = 0, liveK = 0;
 unsigned long lastStreamMillis = 0;
 
 struct TelemetryLog {
+  unsigned long recordId;
   unsigned long timeSec;
   float temp;
   float ph;
   int moist;
   uint16_t n, p, k;
 };
-#define MAX_LOGS 20
+#define MAX_LOGS 60
 TelemetryLog recentLogs[MAX_LOGS];
 int recentLogCount = 0;
+unsigned long totalReadingCounter = 0;
 
 // ─────────────────────────────────────────────
 // PIN DEFINITIONS
@@ -317,7 +319,7 @@ String formatUptime(unsigned long sec) {
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1.0'>";
-  html += "<title>Sto. Cristo Soil Monitor - Live Field Portal</title>";
+  html += "<title>Sto. Cristo Soil Monitoring - Live Field Portal</title>";
   html += "<style>";
   html += "* { box-sizing: border-box; }";
   html += "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #eef3ee; margin: 0; padding: 12px; color: #1e3a1e; }";
@@ -334,7 +336,7 @@ void handleRoot() {
   html += ".card-val { font-size: 1.45rem; font-weight: 800; color: #1b5e20; }";
   html += ".card-sub { font-size: 0.7rem; color: #777; margin-top: 2px; }";
   html += ".section { background: white; border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-top: 14px; }";
-  html += ".section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }";
+  html += ".section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }";
   html += ".section-title { font-size: 0.95rem; font-weight: 700; color: #1b5e20; margin: 0; }";
   html += ".live-tag { font-size: 0.72rem; font-weight: 700; color: #2e7d32; display: inline-flex; align-items: center; gap: 4px; }";
   html += ".dot { width: 8px; height: 8px; background: #00c853; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }";
@@ -347,91 +349,141 @@ void handleRoot() {
   html += "td { padding: 8px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }";
   html += "tbody tr:nth-child(even) { background: #fafcfa; }";
   html += ".badge-ok { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; }";
+  html += ".pag-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8ede8; }";
+  html += ".pag-info { font-size: 0.75rem; color: #555; font-weight: 600; }";
+  html += ".pag-nav { display: flex; gap: 4px; flex-wrap: wrap; }";
+  html += ".pag-btn { background: white; color: #1b5e20; border: 1px solid #c8d8c8; padding: 5px 9px; border-radius: 5px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }";
+  html += ".pag-btn:hover:not(.disabled):not(.active) { background: #e8f5e9; border-color: #2e7d32; }";
+  html += ".pag-btn.active { background: #1b5e20; color: white; border-color: #1b5e20; cursor: default; }";
+  html += ".pag-btn.disabled { opacity: 0.4; cursor: not-allowed; color: #888; border-color: #ddd; }";
   html += ".footer { text-align: center; font-size: 0.75rem; color: #777; margin: 18px 0 10px; line-height: 1.4; }";
   html += "</style></head><body>";
 
   html += "<div class='header'>";
   html += "<h2>🌾 Sto. Cristo Concepcion Cooperative</h2>";
-  html += "<p>Offline Soil Monitoring System &bull; Direct WiFi Feed</p>";
+  html += "<p>Offline Soil Monitoring System &bull; Live Telemetry Feed</p>";
   html += "<div class='pill-bar'>";
-  html += "<span class='pill pill-live'><span class='dot'></span> LIVE STREAMING</span>";
+  html += "<span class='pill pill-live'><span class='dot'></span> LIVE TELEMETRY STREAM</span>";
   html += "<span class='pill'>SSID: Soil-Monitor-Local</span>";
   html += "<span class='pill'>IP: 192.168.4.1</span>";
   html += "</div></div>";
 
-  // Live metric cards
+  // Metric Cards
   html += "<div class='grid'>";
-  html += "<div class='card'><div class='card-label'>💧 Soil Moisture</div><div class='card-val' id='v-moist'>" + String(liveMoist) + "%</div><div class='card-sub'>Target: 30-60%</div></div>";
-  html += "<div class='card'><div class='card-label'>🧪 pH Level</div><div class='card-val' id='v-ph'>" + String(livePH, 1) + "</div><div class='card-sub'>Target: 5.5-7.5</div></div>";
-  html += "<div class='card'><div class='card-label'>🌡️ Temperature</div><div class='card-val' id='v-temp'>" + String(liveTemp, 1) + "&deg;C</div><div class='card-sub'>Target: 22-32&deg;C</div></div>";
+  html += "<div class='card'><div class='card-label'>💧 Soil Moisture</div><div class='card-val' id='v-moist'>" + String(liveMoist) + "%</div><div class='card-sub'>Target: 30% - 60%</div></div>";
+  html += "<div class='card'><div class='card-label'>🧪 Soil pH Level</div><div class='card-val' id='v-ph'>" + String(livePH, 1) + "</div><div class='card-sub'>Target: 5.5 - 7.5</div></div>";
+  html += "<div class='card'><div class='card-label'>🌡️ Soil Temperature</div><div class='card-val' id='v-temp'>" + String(liveTemp, 1) + "&deg;C</div><div class='card-sub'>Target: 22&deg;C - 32&deg;C</div></div>";
   html += "<div class='card'><div class='card-label'>🌿 NPK Nutrients</div><div class='card-val' id='v-npk' style='font-size:1.15rem;'>" + String(liveN) + "/" + String(liveP) + "/" + String(liveK) + "</div><div class='card-sub'>N / P / K (mg/kg)</div></div>";
   html += "</div>";
 
-  // Real-Time Table Section
+  // Table Section
   html += "<div class='section'>";
   html += "<div class='section-head'>";
-  html += "<h3 class='section-title'>📋 Talaan ng mga Pumapasok na Data (Live Stream)</h3>";
-  html += "<span class='live-tag'><span class='dot'></span> Bawat 10 Segundo</span>";
+  html += "<h3 class='section-title'>📋 Real-Time Incoming Field Telemetry (Live Stream)</h3>";
+  html += "<span class='live-tag'><span class='dot'></span> Updates Every 10 Seconds</span>";
   html += "</div>";
-  html += "<p style='font-size:0.75rem;color:#666;margin:0 0 10px;'>Kahit walang internet o offline ang Railway, kusang pumapasok at lumalabas dito ang bawat reading ng sensors.</p>";
+  html += "<p style='font-size:0.75rem;color:#666;margin:0 0 10px;'>Live sensor telemetry streaming continuously. Accessible offline without internet connection.</p>";
 
   html += "<div class='table-wrap'>";
   html += "<table><thead><tr>";
-  html += "<th>Oras (Min:Sec)</th><th>Moisture</th><th>pH Level</th><th>Temp</th><th>Nitrogen (N)</th><th>Phosphorus (P)</th><th>Potassium (K)</th><th>Katayuan</th>";
-  html += "</tr></thead><tbody id='log-tbody'>";
+  html += "<th>Record #</th><th>Uptime</th><th>Moisture</th><th>pH Level</th><th>Temperature</th><th>Nitrogen (N)</th><th>Phosphorus (P)</th><th>Potassium (K)</th><th>Status</th>";
+  html += "</tr></thead><tbody id='log-tbody'></tbody></table></div>";
 
-  // Loop backwards from newest to oldest
-  if (recentLogCount > 0) {
-    for (int i = recentLogCount - 1; i >= 0; i--) {
-      html += "<tr>";
-      html += "<td><b>" + formatUptime(recentLogs[i].timeSec) + "</b></td>";
-      html += "<td>" + String(recentLogs[i].moist) + "%</td>";
-      html += "<td>" + String(recentLogs[i].ph, 1) + "</td>";
-      html += "<td>" + String(recentLogs[i].temp, 1) + "°C</td>";
-      html += "<td>" + String(recentLogs[i].n) + " mg/kg</td>";
-      html += "<td>" + String(recentLogs[i].p) + " mg/kg</td>";
-      html += "<td>" + String(recentLogs[i].k) + " mg/kg</td>";
-      html += "<td><span class='badge-ok'>✓ Pumasok</span></td>";
-      html += "</tr>";
-    }
-  } else {
-    html += "<tr id='no-data-row'><td colspan='8' style='text-align:center;padding:16px;color:#888;'>Nangangalap ng unang reading ang sensors...</td></tr>";
-  }
-
-  html += "</tbody></table></div></div>";
+  // Pagination controls
+  html += "<div class='pag-bar'>";
+  html += "<div class='pag-info' id='pag-info'>Loading records...</div>";
+  html += "<div class='pag-nav' id='pag-nav'></div>";
+  html += "</div></div>";
 
   html += "<div class='footer'>";
   html += "Sto. Cristo Concepcion Farmers Agriculture Cooperative<br>";
-  html += "ESP32 Real-Time Soil Monitor &bull; 4G LTE A7670C &bull; WiFi AP Direct Portal";
+  html += "ESP32 Real-Time Soil Monitor &bull; 4G LTE A7670C &bull; Offline WiFi Access Point";
   html += "</div>";
 
-  // JavaScript for Real-Time Polling & Dynamic Table Prepend
+  // Embedded JavaScript for pagination and live polling
   html += "<script>";
-  html += "let lastLoggedSec = " + String(recentLogCount > 0 ? recentLogs[recentLogCount - 1].timeSec : 0) + ";";
+  html += "const PAGE_SIZE = 10;";
+  html += "let currentPage = 1;";
+  html += "let allRecords = [";
+
+  // Output initial records array from recentLogs (newest first)
+  for (int i = recentLogCount - 1; i >= 0; i--) {
+    html += "{id:" + String(recentLogs[i].recordId) + ",";
+    html += "time:" + String(recentLogs[i].timeSec) + ",";
+    html += "moist:" + String(recentLogs[i].moist) + ",";
+    html += "ph:" + String(recentLogs[i].ph, 1) + ",";
+    html += "temp:" + String(recentLogs[i].temp, 1) + ",";
+    html += "n:" + String(recentLogs[i].n) + ",";
+    html += "p:" + String(recentLogs[i].p) + ",";
+    html += "k:" + String(recentLogs[i].k) + ",isNew:false}";
+    if (i > 0) html += ",";
+  }
+  html += "];";
+
+  html += "let lastSeenId = " + String(recentLogCount > 0 ? recentLogs[recentLogCount - 1].recordId : 0) + ";";
+
   html += "function fmtTime(s){let m=Math.floor(s/60);let sec=s%60;return (m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;}";
+
+  html += "function renderTable(){";
+  html += "  let tb=document.getElementById('log-tbody');";
+  html += "  let total=allRecords.length;";
+  html += "  if(total===0){";
+  html += "    tb.innerHTML='<tr><td colspan=\"9\" style=\"text-align:center;padding:18px;color:#888;\">Gathering initial sensor telemetry...</td></tr>';";
+  html += "    document.getElementById('pag-info').innerText='No records available yet.';";
+  html += "    document.getElementById('pag-nav').innerHTML='';";
+  html += "    return;";
+  html += "  }";
+  html += "  let totalPages=Math.ceil(total/PAGE_SIZE);";
+  html += "  if(currentPage>totalPages) currentPage=totalPages;";
+  html += "  if(currentPage<1) currentPage=1;";
+  html += "  let start=(currentPage-1)*PAGE_SIZE;";
+  html += "  let end=Math.min(start+PAGE_SIZE, total);";
+  html += "  let h='';";
+  html += "  for(let i=start; i<end; i++){";
+  html += "    let r=allRecords[i];";
+  html += "    let cls=(i===0 && r.isNew)?'new-row':'';";
+  html += "    h+='<tr class=\"'+cls+'\">';";
+  html += "    h+='<td><b>#'+r.id+'</b></td>';";
+  html += "    h+='<td>'+fmtTime(r.time)+'</td>';";
+  html += "    h+='<td>'+r.moist+'%</td>';";
+  html += "    h+='<td>'+Number(r.ph).toFixed(1)+'</td>';";
+  html += "    h+='<td>'+Number(r.temp).toFixed(1)+'°C</td>';";
+  html += "    h+='<td>'+r.n+' mg/kg</td>';";
+  html += "    h+='<td>'+r.p+' mg/kg</td>';";
+  html += "    h+='<td>'+r.k+' mg/kg</td>';";
+  html += "    h+='<td><span class=\"badge-ok\">● Recorded</span></td>';";
+  html += "    h+='</tr>';";
+  html += "  }";
+  html += "  tb.innerHTML=h;";
+  html += "  document.getElementById('pag-info').innerText='Showing '+(start+1)+'-'+end+' of '+total+' records (Page '+currentPage+' of '+totalPages+')';";
+  html += "  let nav='';";
+  html += "  if(currentPage>1){ nav+='<button class=\"pag-btn\" onclick=\"setPage('+(currentPage-1)+')\">&laquo; Prev</button>'; }";
+  html += "  else{ nav+='<button class=\"pag-btn disabled\" disabled>&laquo; Prev</button>'; }";
+  html += "  for(let p=1; p<=totalPages; p++){";
+  html += "    if(p===currentPage){ nav+='<button class=\"pag-btn active\">Page '+p+'</button>'; }";
+  html += "    else{ nav+='<button class=\"pag-btn\" onclick=\"setPage('+p+')\">Page '+p+'</button>'; }";
+  html += "  }";
+  html += "  if(currentPage<totalPages){ nav+='<button class=\"pag-btn\" onclick=\"setPage('+(currentPage+1)+')\">Next &raquo;</button>'; }";
+  html += "  else{ nav+='<button class=\"pag-btn disabled\" disabled>Next &raquo;</button>'; }";
+  html += "  document.getElementById('pag-nav').innerHTML=nav;";
+  html += "}";
+
+  html += "function setPage(p){ currentPage=p; renderTable(); }";
+  html += "renderTable();";
+
+  // Polling loop
   html += "setInterval(function(){";
   html += "  fetch('/api/live').then(r=>r.json()).then(d=>{";
-  html += "    document.getElementById('v-moist').innerText = d.moist + '%';";
-  html += "    document.getElementById('v-ph').innerText = Number(d.ph).toFixed(1);";
-  html += "    document.getElementById('v-temp').innerText = Number(d.temp).toFixed(1) + '°C';";
-  html += "    document.getElementById('v-npk').innerText = d.n + '/' + d.p + '/' + d.k;";
-  html += "    if(d.time && d.time !== lastLoggedSec && d.time > 0){";
-  html += "      lastLoggedSec = d.time;";
-  html += "      let tb = document.getElementById('log-tbody');";
-  html += "      let empty = document.getElementById('no-data-row');";
-  html += "      if(empty) empty.remove();";
-  html += "      let tr = document.createElement('tr');";
-  html += "      tr.className = 'new-row';";
-  html += "      tr.innerHTML = '<td><b>' + fmtTime(d.time) + '</b></td>' +";
-  html += "                     '<td>' + d.moist + '%</td>' +";
-  html += "                     '<td>' + Number(d.ph).toFixed(1) + '</td>' +";
-  html += "                     '<td>' + Number(d.temp).toFixed(1) + '°C</td>' +";
-  html += "                     '<td>' + d.n + ' mg/kg</td>' +";
-  html += "                     '<td>' + d.p + ' mg/kg</td>' +";
-  html += "                     '<td>' + d.k + ' mg/kg</td>' +";
-  html += "                     '<td><span class=\"badge-ok\">✓ Pumasok</span></td>';";
-  html += "      tb.insertBefore(tr, tb.firstChild);";
-  html += "      while(tb.children.length > 25){ tb.removeChild(tb.lastChild); }";
+  html += "    document.getElementById('v-moist').innerText=d.moist+'%';";
+  html += "    document.getElementById('v-ph').innerText=Number(d.ph).toFixed(1);";
+  html += "    document.getElementById('v-temp').innerText=Number(d.temp).toFixed(1)+'°C';";
+  html += "    document.getElementById('v-npk').innerText=d.n+'/'+d.p+'/'+d.k;";
+  html += "    if(d.id && d.id!==lastSeenId && d.id>0){";
+  html += "      lastSeenId=d.id;";
+  html += "      if(allRecords.length>0) allRecords[0].isNew=false;";
+  html += "      allRecords.unshift({id:d.id, time:d.time, moist:d.moist, ph:d.ph, temp:d.temp, n:d.n, p:d.p, k:d.k, isNew:true});";
+  html += "      if(allRecords.length>60) allRecords.pop();";
+  html += "      renderTable();";
   html += "    }";
   html += "  }).catch(e=>{});";
   html += "}, 2000);";
@@ -442,7 +494,9 @@ void handleRoot() {
 
 void handleLiveJSON() {
   unsigned long curSec = (recentLogCount > 0) ? recentLogs[recentLogCount - 1].timeSec : (millis() / 1000);
+  unsigned long curId  = (recentLogCount > 0) ? recentLogs[recentLogCount - 1].recordId : 0;
   String json = "{";
+  json += "\"id\":" + String(curId) + ",";
   json += "\"moist\":" + String(liveMoist) + ",";
   json += "\"ph\":" + String(livePH, 2) + ",";
   json += "\"temp\":" + String(liveTemp, 2) + ",";
@@ -617,15 +671,18 @@ void loop() {
     liveP     = p;
     liveK     = k;
 
-    // I-store sa Recent Telemetry Logs para sa Offline Web Table (Live Stream)
+    // Store in recent telemetry log buffer for offline web table with pagination
+    totalReadingCounter++;
+    TelemetryLog newLog = { totalReadingCounter, millis() / 1000, temp, ph, moist, n, p, k };
+
     if (recentLogCount < MAX_LOGS) {
-      recentLogs[recentLogCount] = { millis() / 1000, temp, ph, moist, n, p, k };
+      recentLogs[recentLogCount] = newLog;
       recentLogCount++;
     } else {
       for (int i = 0; i < MAX_LOGS - 1; i++) {
         recentLogs[i] = recentLogs[i + 1];
       }
-      recentLogs[MAX_LOGS - 1] = { millis() / 1000, temp, ph, moist, n, p, k };
+      recentLogs[MAX_LOGS - 1] = newLog;
     }
 
     Serial.print("[TEMP]  Temperature : "); Serial.print(temp, 2); Serial.println(" °C");
