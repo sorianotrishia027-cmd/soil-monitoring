@@ -36,7 +36,7 @@ struct TelemetryLog {
   int moist;
   uint16_t n, p, k;
 };
-#define MAX_LOGS 60
+#define MAX_LOGS 75
 TelemetryLog recentLogs[MAX_LOGS];
 int recentLogCount = 0;
 unsigned long totalReadingCounter = 0;
@@ -402,7 +402,7 @@ void handleRoot() {
 
   // Embedded JavaScript for pagination and live polling
   html += "<script>";
-  html += "const PAGE_SIZE = 10;";
+  html += "const PAGE_SIZE = 15;";
   html += "let currentPage = 1;";
   html += "let allRecords = [";
 
@@ -482,7 +482,7 @@ void handleRoot() {
   html += "      lastSeenId=d.id;";
   html += "      if(allRecords.length>0) allRecords[0].isNew=false;";
   html += "      allRecords.unshift({id:d.id, time:d.time, moist:d.moist, ph:d.ph, temp:d.temp, n:d.n, p:d.p, k:d.k, isNew:true});";
-  html += "      if(allRecords.length>60) allRecords.pop();";
+  html += "      if(allRecords.length>75) allRecords.pop();";
   html += "      renderTable();";
   html += "    }";
   html += "  }).catch(e=>{});";
