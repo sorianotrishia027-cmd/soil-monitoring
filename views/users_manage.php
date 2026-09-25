@@ -158,7 +158,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                     <th style="padding: 12px;">Full Name</th>
                     <th style="padding: 12px;">Username</th>
                     <th style="padding: 12px;">Email</th>
-                    <th style="padding: 12px;">📱 Contact No.</th>
+                    <th style="padding: 12px;">Contact No.</th>
                     <th style="padding: 12px;">Role</th>
                     <th style="padding: 12px; text-align: center;">Actions</th>
                 </tr>
@@ -217,7 +217,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                 <input type="text" name="fullname" id="modal_fullname" placeholder="Full Name" required>
             </div>
 
-            <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">📱 Contact Number:</label>
+            <label class="chip-label" style="text-align: left; display: block; margin-bottom: 5px; margin-top: 12px;">Contact Number:</label>
             <div class="input-wrapper" style="background: #f4f6f4;">
                 <input type="tel" name="contact_number" id="modal_contact_number" placeholder="09XXXXXXXXX" maxlength="20">
             </div>
