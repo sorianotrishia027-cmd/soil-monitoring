@@ -12,13 +12,13 @@
 // ─────────────────────────────────────────────
 // 10 SECONDS INTERVAL CONFIGURATION
 // ─────────────────────────────────────────────
-const unsigned long STREAM_DELAY = 10000; // Eksaktong 10 segundo bawat reading
+const unsigned long STREAM_DELAY = 10000; // Exact 10 seconds per reading
 
 // ─────────────────────────────────────────────
 // OFFLINE WIFI HOTSPOT & WEB PORTAL
 // ─────────────────────────────────────────────
 const char* apSSID = "Soil-Monitor-Local";
-const char* apPass = "agri12345"; // Connect dito ang cellphone/laptop: 192.168.4.1
+const char* apPass = "agri12345"; // Connect here using a smartphone or laptop: 192.168.4.1
 WebServer server(80);
 
 // Global live sensor cache & offline telemetry logs
@@ -26,6 +26,7 @@ float liveTemp = 0.0;
 float livePH   = 0.0;
 int   liveMoist = 0;
 uint16_t liveN = 0, liveP = 0, liveK = 0;
+bool npkSensorOnline = false;
 unsigned long lastStreamMillis = 0;
 
 struct TelemetryLog {
@@ -41,6 +42,10 @@ TelemetryLog recentLogs[MAX_LOGS];
 int recentLogCount = 0;
 unsigned long totalReadingCounter = 0;
 
+// SMS Alert Cooldown: 15 minutes between SMS alerts to preserve credits
+unsigned long lastSMSAlertMillis = 0;
+const unsigned long SMS_ALERT_COOLDOWN = 900000; // 15 minutes in milliseconds
+
 // ─────────────────────────────────────────────
 // PIN DEFINITIONS
 // ─────────────────────────────────────────────
@@ -51,12 +56,12 @@ unsigned long totalReadingCounter = 0;
 // MAX485 Control Pins
 #define RXD2           16   // ESP32 RX2 -> MAX485 RO
 #define TXD2           17   // ESP32 TX2 -> MAX485 DI
-#define MAX485_DE_RE   21   // ESP32 GPIO 21 -> MAX485 DE at RE
+#define MAX485_DE_RE   21   // ESP32 GPIO 21 -> MAX485 DE & RE
 
 // MicroSD Card Pins (Blue Module / VSPI)
 #define SD_CS_PIN       5   // CS -> GPIO 5
 #define SD_SCK_PIN     18   // SCK / CLK -> GPIO 18
-#define SD_MISO_PIN    19   // MOSO (MISO) -> GPIO 19
+#define SD_MISO_PIN    19   // MISO -> GPIO 19
 #define SD_MOSI_PIN    23   // MOSI -> GPIO 23
 
 // GSM A7670C (UART1)
@@ -64,15 +69,15 @@ unsigned long totalReadingCounter = 0;
 #define TXD1           27   // ESP32 TX1 -> Module RXD
 
 // ─────────────────────────────────────────────
-// CONFIGURATION (SERVER, SIM, APN)
+// CONFIGURATION (SERVER, SIM, APN, FALLBACK PHONE)
 // ─────────────────────────────────────────────
-const char* serverHost  = "altaria.proxy.rlwy.net";
-const int   serverPort  = 59755;
-const char* serverPath  = "/api/store_data.php";
-const char* apiKey      = "SCC_AGRI_SECRET_KEY_2026";
-const char* deviceId    = "ESP32_GSM_01";
-const char* targetPhone = "09765212046";
-const char* simAPN      = "internet.globe.com.ph";
+const char* serverHost    = "altaria.proxy.rlwy.net";
+const int   serverPort    = 59755;
+const char* serverPath    = "/api/store_data.php";
+const char* apiKey        = "SCC_AGRI_SECRET_KEY_2026";
+const char* deviceId      = "ESP32_GSM_01";
+const char* fallbackPhone = "09765212046"; // Default emergency number if cloud phone is empty
+const char* simAPN        = "gomo.ph";       // Official APN for GOMO SIM
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -94,14 +99,18 @@ uint16_t calculateCRC(uint8_t *data, uint8_t length) {
 }
 
 // ─────────────────────────────────────────────
-// RS485 HARDWARE PROBE READER
+// RS485 HARDWARE NPK PROBE READER (PURE SENSOR DATA)
 // ─────────────────────────────────────────────
-bool tryHardwareNPK(uint16_t &n, uint16_t &p, uint16_t &k) {
+bool readHardwareNPK(uint16_t &n, uint16_t &p, uint16_t &k) {
+  n = 0;
+  p = 0;
+  k = 0;
   while (Serial2.available()) Serial2.read();
 
   digitalWrite(MAX485_DE_RE, HIGH);
   delayMicroseconds(200);
 
+  // Standard Modbus-RTU Query: Read 3 holding registers starting at 0x0000
   uint8_t pkt[] = { 0x01, 0x03, 0x00, 0x00, 0x00, 0x03 };
   uint16_t crc = calculateCRC(pkt, 6);
   uint8_t sendPkt[8];
@@ -117,70 +126,38 @@ bool tryHardwareNPK(uint16_t &n, uint16_t &p, uint16_t &k) {
   unsigned long t = millis();
   int idx = 0;
   uint8_t buf[32];
-  while (millis() - t < 300) {
-    if (Serial2.available() && idx < 32) buf[idx++] = Serial2.read();
+  while (millis() - t < 350) {
+    if (Serial2.available() && idx < 32) {
+      buf[idx++] = Serial2.read();
+    }
   }
 
-  if (idx >= 9 && buf[1] == 0x03) {
-    uint16_t rawN = (buf[3] << 8) | buf[4];
-    uint16_t rawP = (buf[5] << 8) | buf[6];
-    uint16_t rawK = (buf[7] << 8) | buf[8];
-    if (rawN > 0 || rawP > 0 || rawK > 0) {
-      n = rawN; p = rawP; k = rawK;
-      return true;
-    }
+  // Check valid response (Addr 0x01, Func 0x03, Byte Count 0x06)
+  if (idx >= 9 && buf[0] == 0x01 && buf[1] == 0x03 && buf[2] == 0x06) {
+    n = (buf[3] << 8) | buf[4];
+    p = (buf[5] << 8) | buf[6];
+    k = (buf[7] << 8) | buf[8];
+    return true;
   }
   return false;
 }
 
 // ─────────────────────────────────────────────
-// AGRONOMIC SOIL CORRELATION ENGINE (OPSYON A)
-// ─────────────────────────────────────────────
-void calculateAgronomicNPK(int moisture, float ph, uint16_t &n, uint16_t &p, uint16_t &k) {
-  // 1. Kung sumagot ang hardware probe, gamitin ito
-  if (tryHardwareNPK(n, p, k)) return;
-
-  // 2. Kapag tuyong-tuyo ang lupa
-  if (moisture <= 15) {
-    n = random(4, 9);
-    p = random(2, 6);
-    k = random(5, 12);
-    return;
-  }
-
-  // 3. Makatotohanang values batay sa totoong moisture at pH
-  float moistFactor = constrain(moisture / 100.0, 0.2, 1.0);
-  
-  float phFactor = 1.0;
-  if (ph >= 5.5 && ph <= 7.5) {
-    phFactor = 1.15;
-  } else if (ph < 5.0 || ph > 8.5) {
-    phFactor = 0.85;
-  }
-
-  float calculatedN = (45.0 + (moistFactor * 42.0)) * phFactor + random(-2, 3);
-  float calculatedP = (22.0 + (moistFactor * 26.0)) * phFactor + random(-1, 2);
-  float calculatedK = (40.0 + (moistFactor * 38.0)) * phFactor + random(-2, 3);
-
-  n = constrain((uint16_t)calculatedN, 10, 150);
-  p = constrain((uint16_t)calculatedP, 5, 80);
-  k = constrain((uint16_t)calculatedK, 15, 160);
-}
-
-// ─────────────────────────────────────────────
-// ANALOG SENSORS (TEMPERATURE, PH, MOISTURE)
+// ANALOG & DIGITAL SENSORS (PURE READINGS ONLY)
 // ─────────────────────────────────────────────
 float readPureTemperature() {
   sensors.requestTemperatures();
   float t = sensors.getTempCByIndex(0);
-  if (t <= -50.0 || t >= 85.0 || t == DEVICE_DISCONNECTED_C) return 0.0;
+  if (t <= -50.0 || t >= 85.0 || t == DEVICE_DISCONNECTED_C) {
+    return 0.0; // Return 0.0 if sensor is unplugged or missing pullup resistor
+  }
   return t;
 }
 
 float readPurePH(int &rawOut) {
   rawOut = analogRead(PH_PIN);
   if (rawOut <= 10) return 0.0;
-  float voltage = rawOut * 3.3 / 4095.0;
+  float voltage = rawOut * (3.3 / 4095.0);
   float ph = 7.0 + ((2.5 - voltage) * 2.0);
   return constrain(ph, 0.0, 14.0);
 }
@@ -193,12 +170,12 @@ int readPureMoisture(int &rawOut) {
   }
   rawOut = sum / 5;
   if (rawOut <= 10) return 0;
-  int pct = map(rawOut, 3400, 100, 0, 100);
+  int pct = map(rawOut, 3400, 1000, 0, 100);
   return constrain(pct, 0, 100);
 }
 
 // ─────────────────────────────────────────────
-// SD CARD LOGGING (CSV STORAGE)
+// STORAGE LOGGING (INTERNAL FLASH + SD CARD)
 // ─────────────────────────────────────────────
 void logDataToStorage(float temp, float ph, int moist, uint16_t n, uint16_t p, uint16_t k) {
   unsigned long timestampSec = millis() / 1000;
@@ -210,21 +187,17 @@ void logDataToStorage(float temp, float ph, int moist, uint16_t n, uint16_t p, u
                String(p) + "," +
                String(k);
 
-  // 1. Laging i-save sa Built-in Internal Flash Memory ng ESP32 (LittleFS)
   File fInternal = LittleFS.open("/soil_data.csv", "a");
   if (fInternal) {
     fInternal.println(row);
     fInternal.close();
-    Serial.println("💾 [STORAGE] Logged to Internal Flash Memory (/soil_data.csv)");
   }
 
-  // 2. I-save din sa MicroSD Card kung online ito
   if (sdCardReady) {
     File fSD = SD.open("/soil_data.csv", FILE_APPEND);
     if (fSD) {
       fSD.println(row);
       fSD.close();
-      Serial.println("✅ [SD LOG] Logged to MicroSD Card (/soil_data.csv)");
     }
   }
 }
@@ -235,9 +208,172 @@ void logDataToStorage(float temp, float ph, int moist, uint16_t n, uint16_t p, u
 void flushGSMResponse(unsigned long waitMs = 250) {
   unsigned long start = millis();
   while (millis() - start < waitMs) {
-    server.handleClient(); // Keep offline portal responding!
+    server.handleClient();
     while (Serial1.available()) Serial.write(Serial1.read());
     delay(5);
+  }
+}
+
+// Dynamically fetches farmer's contact number registered to this specific node
+String fetchNodeContact() {
+  Serial.println("[A7670C HTTP] Fetching Farmer Contact for this Node from Cloud...");
+  
+  Serial1.println("AT+CNACT=0,1");
+  flushGSMResponse(150);
+  Serial1.println("AT+HTTPTERM");
+  flushGSMResponse(150);
+  Serial1.println("AT+HTTPINIT");
+  flushGSMResponse(200);
+
+  String getUrl = "http://" + String(serverHost) + ":" + String(serverPort) + "/api/get_node_contacts.php?device_id=" + String(deviceId);
+  
+  Serial1.print("AT+HTTPPARA=\"URL\",\"");
+  Serial1.print(getUrl);
+  Serial1.println("\"");
+  flushGSMResponse(250);
+
+  Serial1.println("AT+HTTPACTION=0");
+  
+  unsigned long actStart = millis();
+  bool gotAction = false;
+  String actBuf = "";
+  while (millis() - actStart < 8000) {
+    server.handleClient();
+    while (Serial1.available()) {
+      char c = Serial1.read();
+      actBuf += c;
+      if (actBuf.indexOf("+HTTPACTION:") != -1 && actBuf.indexOf("\n", actBuf.indexOf("+HTTPACTION:")) != -1) {
+        gotAction = true;
+        break;
+      }
+    }
+    if (gotAction) break;
+    delay(20);
+  }
+
+  Serial1.println("AT+HTTPREAD");
+  delay(500);
+  
+  String fetchedPayload = "";
+  unsigned long readStart = millis();
+  while (millis() - readStart < 2000) {
+    while (Serial1.available()) {
+      String line = Serial1.readStringUntil('\n');
+      line.trim();
+      if (line.length() >= 10 && !line.startsWith("AT") && !line.startsWith("+HTTP") && !line.startsWith("OK")) {
+        fetchedPayload += " " + line;
+      }
+    }
+    delay(20);
+  }
+  fetchedPayload.trim();
+
+  Serial1.println("AT+HTTPTERM");
+  flushGSMResponse(150);
+
+  if (fetchedPayload.length() < 10) {
+    Serial.println("[SMS] Cloud contact empty, using default fallback phone: " + String(fallbackPhone));
+    return String(fallbackPhone);
+  } else {
+    Serial.println("✅ Successfully retrieved contact number for this node: " + fetchedPayload);
+  }
+  
+  return fetchedPayload;
+}
+
+// ─────────────────────────────────────────────
+// DETAILED SMS ALERT SYSTEM (CRITICAL / WARNING / NORMAL)
+// ─────────────────────────────────────────────
+void checkAndSendSMSAlert(float temp, float ph, int moist, uint16_t n, uint16_t p, uint16_t k) {
+  bool isCritical = false;
+  bool isWarning = false;
+  String alertType = "";
+  String recommendation = "";
+
+  // 1. Check if levels are CRITICAL
+  if (temp > 35.0 || ph < 5.0 || ph > 8.0 || moist < 20 || moist > 90 || n > 140 || p > 75 || k > 150) {
+    isCritical = true;
+    alertType = "CRITICAL ALERT!";
+    if (temp > 35.0) recommendation += "Apply mulch/shade. ";
+    if (ph < 5.0) recommendation += "Add dolomite lime. ";
+    if (ph > 8.0) recommendation += "Apply organic sulfur/matter. ";
+    if (moist < 20) recommendation += "Water the soil immediately! ";
+    if (moist > 90) recommendation += "Stop watering / Check drainage. ";
+    if (n > 140 || p > 75 || k > 150) recommendation += "Halt fertilizer application temporarily. ";
+  }
+  // 2. Check if levels are in WARNING range (if not critical)
+  else if ((temp >= 29.0 && temp <= 35.0) || (ph >= 5.0 && ph < 5.5) || (ph > 7.5 && ph <= 8.0) || (moist >= 20 && moist < 30) || (moist > 80 && moist <= 90)) {
+    isWarning = true;
+    alertType = "WARNING NOTICE!";
+    if (temp >= 29.0) recommendation += "High temperature, monitor watering frequency. ";
+    if (ph < 5.5 || ph > 7.5) recommendation += "Slightly outside ideal pH range. ";
+    if (moist < 30) recommendation += "Soil moisture is moderately low, increase watering frequency. ";
+    if (moist > 80) recommendation += "Soil is moderately wet, maintain current care schedule. ";
+  }
+  // 3. If Normal, DO NOT SEND SMS
+  else {
+    Serial.println("[SMS] Soil condition is normal. No SMS sent.");
+    return;
+  }
+
+  // Check 15-Minute Cooldown
+  if (lastSMSAlertMillis != 0 && (millis() - lastSMSAlertMillis < SMS_ALERT_COOLDOWN)) {
+    unsigned long remainingSec = (SMS_ALERT_COOLDOWN - (millis() - lastSMSAlertMillis)) / 1000;
+    Serial.print("[SMS] Alert cooldown active. Next SMS allowed in: ");
+    Serial.print(remainingSec / 60); Serial.println(" mins.");
+    return;
+  }
+
+  String recipients = fetchNodeContact();
+  if (recipients.length() < 10) {
+    recipients = String(fallbackPhone);
+  }
+
+  String smsMessage = "Sto. Cristo Farm Alert!\n" +
+                     alertType + "\n" +
+                     "Node: " + String(deviceId) + "\n" +
+                     "Moist: " + String(moist) + "%\n" +
+                     "pH: " + String(ph, 1) + "\n" +
+                     "Temp: " + String(temp, 1) + "C\n" +
+                     "NPK: " + String(n) + "/" + String(p) + "/" + String(k) + "\n" +
+                     "Action: " + recommendation;
+
+  int startIndex = 0;
+  bool sentAny = false;
+  while (startIndex < recipients.length()) {
+    int spaceIndex = recipients.indexOf(' ', startIndex);
+    String singleNumber = "";
+    if (spaceIndex == -1) {
+      singleNumber = recipients.substring(startIndex);
+      startIndex = recipients.length();
+    } else {
+      singleNumber = recipients.substring(startIndex, spaceIndex);
+      startIndex = spaceIndex + 1;
+    }
+    
+    singleNumber.trim();
+    if (singleNumber.length() >= 10) {
+      Serial.print("[SMS] Sending alert to: ");
+      Serial.println(singleNumber);
+      Serial1.println("AT+CMGF=1");
+      delay(200);
+      
+      Serial1.print("AT+CMGS=\"");
+      Serial1.print(singleNumber);
+      Serial1.println("\"");
+      delay(200);
+      Serial1.print(smsMessage);
+      delay(100);
+      Serial1.write(26);
+      delay(3000);
+      flushGSMResponse(500);
+      sentAny = true;
+    }
+  }
+
+  if (sentAny) {
+    lastSMSAlertMillis = millis(); // Reset cooldown timer
+    Serial.println("✅ [SMS] Alert successfully dispatched. Cooldown started (15 mins).");
   }
 }
 
@@ -262,7 +398,7 @@ void sendDataGSM(float temp, float ph, int moist, uint16_t n, uint16_t p, uint16
   Serial1.println("AT+HTTPPARA=\"CONTENT\",\"application/x-www-form-urlencoded\"");
   flushGSMResponse(150);
 
-  String postData = "api_key="      + String(apiKey)   +
+  String postData = "api_key="      + String(apiKey)    +
                     "&device_id="   + String(deviceId)  +
                     "&temperature=" + String(temp, 2)   +
                     "&ph="          + String(ph, 2)     +
@@ -286,7 +422,7 @@ void sendDataGSM(float temp, float ph, int moist, uint16_t n, uint16_t p, uint16
   bool gotAction = false;
   String actBuf = "";
   while (millis() - actStart < 8000) {
-    server.handleClient(); // Keep offline portal responding!
+    server.handleClient();
     while (Serial1.available()) {
       char c = Serial1.read();
       Serial.write(c);
@@ -308,14 +444,6 @@ void sendDataGSM(float temp, float ph, int moist, uint16_t n, uint16_t p, uint16
 // ─────────────────────────────────────────────
 // OFFLINE WEB SERVER HANDLERS (HTTP 192.168.4.1)
 // ─────────────────────────────────────────────
-String formatUptime(unsigned long sec) {
-  unsigned long mins = sec / 60;
-  unsigned long s = sec % 60;
-  char buf[16];
-  snprintf(buf, sizeof(buf), "%02lu:%02lu", mins, s);
-  return String(buf);
-}
-
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1.0'>";
@@ -368,15 +496,13 @@ void handleRoot() {
   html += "<span class='pill'>IP: 192.168.4.1</span>";
   html += "</div></div>";
 
-  // Metric Cards
   html += "<div class='grid'>";
   html += "<div class='card'><div class='card-label'>💧 Soil Moisture</div><div class='card-val' id='v-moist'>" + String(liveMoist) + "%</div><div class='card-sub'>Target: 30% - 60%</div></div>";
   html += "<div class='card'><div class='card-label'>🧪 Soil pH Level</div><div class='card-val' id='v-ph'>" + String(livePH, 1) + "</div><div class='card-sub'>Target: 5.5 - 7.5</div></div>";
   html += "<div class='card'><div class='card-label'>🌡️ Soil Temperature</div><div class='card-val' id='v-temp'>" + String(liveTemp, 1) + "&deg;C</div><div class='card-sub'>Target: 22&deg;C - 32&deg;C</div></div>";
-  html += "<div class='card'><div class='card-label'>🌿 NPK Nutrients</div><div class='card-val' id='v-npk' style='font-size:1.15rem;'>" + String(liveN) + "/" + String(liveP) + "/" + String(liveK) + "</div><div class='card-sub'>N / P / K (mg/kg)</div></div>";
+  html += "<div class='card'><div class='card-label'>🌿 NPK Nutrients</div><div class='card-val' id='v-npk' style='font-size:1.15rem;'>" + String(liveN) + "/" + String(liveP) + "/" + String(liveK) + "</div><div class='card-sub'>" + String(npkSensorOnline ? "Sensor Online (mg/kg)" : "No Sensor / Probe Disconnected") + "</div></div>";
   html += "</div>";
 
-  // Table Section
   html += "<div class='section'>";
   html += "<div class='section-head'>";
   html += "<h3 class='section-title'>📋 Real-Time Incoming Field Telemetry (Live Stream)</h3>";
@@ -389,7 +515,6 @@ void handleRoot() {
   html += "<th>Record #</th><th>Uptime</th><th>Moisture</th><th>pH Level</th><th>Temperature</th><th>Nitrogen (N)</th><th>Phosphorus (P)</th><th>Potassium (K)</th><th>Status</th>";
   html += "</tr></thead><tbody id='log-tbody'></tbody></table></div>";
 
-  // Pagination controls
   html += "<div class='pag-bar'>";
   html += "<div class='pag-info' id='pag-info'>Loading records...</div>";
   html += "<div class='pag-nav' id='pag-nav'></div>";
@@ -400,13 +525,10 @@ void handleRoot() {
   html += "ESP32 Real-Time Soil Monitor &bull; 4G LTE A7670C &bull; Offline WiFi Access Point";
   html += "</div>";
 
-  // Embedded JavaScript for pagination and live polling
   html += "<script>";
   html += "const PAGE_SIZE = 15;";
   html += "let currentPage = 1;";
   html += "let allRecords = [";
-
-  // Output initial records array from recentLogs (newest first)
   for (int i = recentLogCount - 1; i >= 0; i--) {
     html += "{id:" + String(recentLogs[i].recordId) + ",";
     html += "time:" + String(recentLogs[i].timeSec) + ",";
@@ -471,7 +593,6 @@ void handleRoot() {
   html += "function setPage(p){ currentPage=p; renderTable(); }";
   html += "renderTable();";
 
-  // Polling loop
   html += "setInterval(function(){";
   html += "  fetch('/api/live').then(r=>r.json()).then(d=>{";
   html += "    document.getElementById('v-moist').innerText=d.moist+'%';";
@@ -495,6 +616,7 @@ void handleRoot() {
 void handleLiveJSON() {
   unsigned long curSec = (recentLogCount > 0) ? recentLogs[recentLogCount - 1].timeSec : (millis() / 1000);
   unsigned long curId  = (recentLogCount > 0) ? recentLogs[recentLogCount - 1].recordId : 0;
+
   String json = "{";
   json += "\"id\":" + String(curId) + ",";
   json += "\"moist\":" + String(liveMoist) + ",";
@@ -509,7 +631,6 @@ void handleLiveJSON() {
   server.send(200, "application/json", json);
 }
 
-// Quick Serial Dump command kapag nakasaksak sa laptop
 void dumpCSVToSerial() {
   Serial.println("\n========== [CSV DATA DUMP] ==========");
   File file;
@@ -526,7 +647,7 @@ void dumpCSVToSerial() {
     file.close();
     Serial.println("\n====== [END OF CSV DUMP] ======\n");
   } else {
-    Serial.println("Walang /soil_data.csv sa storage.");
+    Serial.println("No /soil_data.csv found in storage.");
   }
 }
 
@@ -535,15 +656,14 @@ void dumpCSVToSerial() {
 // ─────────────────────────────────────────────
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable Brownout detector
-
   Serial.begin(115200);
   delay(2000);
   Serial.println("\n============================================");
   Serial.println("  Sto. Cristo Cooperative Soil Monitor");
-  Serial.println("  ALL-SYSTEM WITH OFFLINE WIFI WEB PORTAL   ");
+  Serial.println("  PURE SENSOR TELEMETRY & CLOUD SYSTEM      ");
   Serial.println("============================================");
 
-  // 1. Built-in Flash Storage (LittleFS) Initialization
+  // 1. Built-in Flash Storage (LittleFS)
   if (LittleFS.begin(true)) {
     Serial.println("✅ [STORAGE] Built-in LittleFS Memory Ready!");
     if (!LittleFS.exists("/soil_data.csv")) {
@@ -565,7 +685,7 @@ void setup() {
   WiFi.softAP(apSSID, apPass);
   delay(100);
   IPAddress myIP = WiFi.softAPIP();
-  Serial.print("📡 [WIFI HOTSPOT] Pangalan: "); Serial.println(apSSID);
+  Serial.print("📡 [WIFI HOTSPOT] SSID: "); Serial.println(apSSID);
   Serial.print("🔑 [WIFI PASSWORD]: "); Serial.println(apPass);
   Serial.print("🌐 [OFFLINE WEB PORTAL]: http://"); Serial.println(myIP);
 
@@ -576,9 +696,9 @@ void setup() {
     server.send(302, "text/plain", "");
   });
   server.begin();
-  Serial.println("✅ [WEB SERVER] Ready sa port 80!");
+  Serial.println("✅ [WEB SERVER] Listening on port 80!");
 
-  // 3. MicroSD Initialization (CS=5, SCK=18, MISO=19, MOSI=23)
+  // 3. MicroSD Initialization
   pinMode(SD_CS_PIN, OUTPUT);
   digitalWrite(SD_CS_PIN, HIGH);
   pinMode(SD_MISO_PIN, INPUT_PULLUP);
@@ -605,15 +725,13 @@ void setup() {
     Serial.println("⚠️ [SD CARD] Offline - Built-in Flash Memory & 4G Cloud Active!");
   }
 
-  // 4. DS18B20 Temperature Setup (GPIO 22)
+  // 4. Sensors
   sensors.begin();
-
-  // 5. MAX485 Control (GPIO 21) & UART2 (GPIO 16 & 17)
   pinMode(MAX485_DE_RE, OUTPUT);
   digitalWrite(MAX485_DE_RE, LOW);
   Serial2.begin(4800, SERIAL_8N1, RXD2, TXD2);
 
-  // 6. GSM A7670C Setup (GPIO 26 & 27)
+  // 5. GSM A7670C (4G LTE with GOMO APN)
   Serial1.begin(115200, SERIAL_8N1, RXD1, TXD1);
   delay(1000);
   for (int i = 0; i < 3; i++) {
@@ -624,7 +742,7 @@ void setup() {
   Serial1.println("ATE0");
   delay(200);
   flushGSMResponse(150);
-  Serial1.println("AT+CGDCONT=1,\"IP\",\"internet.globe.com.ph\"");
+  Serial1.println("AT+CGDCONT=1,\"IP\",\"gomo.ph\""); // GOMO APN
   delay(400);
   flushGSMResponse(150);
   Serial1.println("AT+CNACT=0,1");
@@ -635,10 +753,10 @@ void setup() {
 }
 
 // ─────────────────────────────────────────────
-// MAIN LOOP (NON-BLOCKING TIMING)
+// MAIN LOOP
 // ─────────────────────────────────────────────
 void loop() {
-  server.handleClient(); // Serves cellphone/laptop web requests instantly!
+  server.handleClient();
 
   if (Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
@@ -652,7 +770,7 @@ void loop() {
     lastStreamMillis = millis();
 
     Serial.println("============================================");
-    Serial.println("           LIVE SENSOR TELEMETRY            ");
+    Serial.println("            LIVE SENSOR TELEMETRY           ");
     Serial.println("============================================");
 
     int rawMoist = 0;
@@ -662,7 +780,8 @@ void loop() {
     float ph = readPurePH(rawPH);
     uint16_t n = 0, p = 0, k = 0;
 
-    calculateAgronomicNPK(moist, ph, n, p, k);
+    // Pure Hardware NPK Reading
+    npkSensorOnline = readHardwareNPK(n, p, k);
 
     liveTemp  = temp;
     livePH    = ph;
@@ -671,7 +790,6 @@ void loop() {
     liveP     = p;
     liveK     = k;
 
-    // Store in recent telemetry log buffer for offline web table with pagination
     totalReadingCounter++;
     TelemetryLog newLog = { totalReadingCounter, millis() / 1000, temp, ph, moist, n, p, k };
 
@@ -694,13 +812,21 @@ void loop() {
     Serial.print("[NPK]   Nutrients   : N: ");
     Serial.print(n); Serial.print(" mg/kg | P: ");
     Serial.print(p); Serial.print(" mg/kg | K: ");
-    Serial.print(k); Serial.println(" mg/kg");
+    Serial.print(k); Serial.print(" mg/kg");
+    if (!npkSensorOnline) {
+      Serial.println(" (No Response / Probe Disconnected)");
+    } else {
+      Serial.println(" (Probe Online)");
+    }
 
-    // I-log sa Storage (Built-in Flash + SD Card kung ready)
+    // 1. Log to Internal Storage & SD Card
     logDataToStorage(temp, ph, moist, n, p, k);
 
-    // I-stream sa Railway Cloud via 4G
+    // 2. Stream Telemetry to Railway Cloud Dashboard
     sendDataGSM(temp, ph, moist, n, p, k);
+
+    // 3. Dynamic SMS Alert for Registered Farmer of this Node
+    checkAndSendSMSAlert(temp, ph, moist, n, p, k);
 
     Serial.println("============================================");
     Serial.println("⏳ Streaming to Cloud & Serving Offline Portal...");

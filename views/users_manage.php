@@ -171,9 +171,12 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                         <td style="padding: 12px;"><?= htmlspecialchars($row['username']) ?></td>
                         <td style="padding: 12px; color: var(--text-muted);"><?= htmlspecialchars($row['email']) ?></td>
                         <td style="padding: 12px;">
-                            <?php if (!empty($row['contact_number'])): ?>
+                            <?php 
+                                $userPhone = trim($row['phone_number'] ?? $row['contact_number'] ?? '');
+                                if (!empty($userPhone)): 
+                            ?>
                                 <span style="background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                                    📱 <?= htmlspecialchars($row['contact_number']) ?>
+                                    📱 <?= htmlspecialchars($userPhone) ?>
                                 </span>
                             <?php else: ?>
                                 <span style="color: #bbb; font-size: 12px;">— not set —</span>
@@ -186,7 +189,7 @@ $users_list = $conn->query("SELECT id, username, email, fullname, role, contact_
                         </td>
                         <td style="padding: 12px; text-align: center;">
                             <button class="status-pill" style="background: #e4ebe4; color: #333; border: none; cursor: pointer; padding: 5px 10px; margin-right: 4px;"
-                                    onclick="openEditUserModal(<?= $row['id'] ?>, '<?= addslashes($row['fullname']) ?>', '<?= $row['role'] ?>', '<?= addslashes($row['contact_number'] ?? '') ?>')">
+                                    onclick="openEditUserModal(<?= $row['id'] ?>, '<?= addslashes($row['fullname']) ?>', '<?= $row['role'] ?>', '<?= addslashes($userPhone) ?>')">
                                 Edit
                             </button>
                             <form action="dashboard.php?page=users_manage" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to completely delete this user row record?');">
