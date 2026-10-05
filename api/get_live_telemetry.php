@@ -1,91 +1,471 @@
 <?php
 // api/get_live_telemetry.php
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 header("Content-Type: application/json");
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
 
 require_once __DIR__ . '/../config/db_connect.php';
+
 date_default_timezone_set('Asia/Manila');
 
 try {
-    $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1");
-    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$latest) {
+    // =====================================================
+    // 1. CHECK LOGIN
+    // =====================================================
+
+    if (!isset($_SESSION['user_id'])) {
+
+        http_response_code(401);
+
         echo json_encode([
-            "status" => "empty",
-            "message" => "No telemetry data recorded yet."
+            "status" => "error",
+            "message" => "Unauthorized. Please login first."
         ]);
+
         exit;
     }
 
-    $valMoisture = isset($latest['moisture']) ? floatval($latest['moisture']) : null;
-    $valPh       = isset($latest['ph']) ? floatval($latest['ph']) : null;
-    $valN        = isset($latest['nitrogen']) ? intval($latest['nitrogen']) : null;
-    $valP        = isset($latest['phosphorus']) ? intval($latest['phosphorus']) : null;
-    $valK        = isset($latest['potassium']) ? intval($latest['potassium']) : null;
-    $valTemp     = isset($latest['temperature']) ? floatval($latest['temperature']) : null;
-    $createdAt   = $latest['created_at'] ?? date('Y-m-d H:i:s');
-    $npkOnline   = ($valN > 0 || $valP > 0 || $valK > 0);
-    $formattedTime = date('M j, Y - g:i:s A', strtotime($createdAt));
+    $userId = (int)$_SESSION['user_id'];
 
-    // Fetch last 7 readings for live chart sync
-    $chartStmt = $conn->query("SELECT moisture, created_at FROM (SELECT id, moisture, created_at FROM soil_readings ORDER BY id DESC LIMIT 7) AS sub ORDER BY id ASC");
-    $chartRows = $chartStmt ? $chartStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    if ($userId <= 0) {
+
+        http_response_code(401);
+
+        echo json_encode([
+            "status" => "error",
+            "message" => "Invalid user session."
+        ]);
+
+        exit;
+    }
+
+    // =====================================================
+    // 2. VERIFY USER FROM DATABASE
+    // =====================================================
+
+    $userStmt = $conn->prepare("
+        SELECT id, role
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $userStmt->execute([$userId]);
+
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+
+        session_destroy();
+
+        http_response_code(401);
+
+        echo json_encode([
+            "status" => "error",
+            "message" => "User account not found."
+        ]);
+
+        exit;
+    }
+
+    /*
+     * Database role is trusted instead of a client-controlled
+     * request value.
+     */
+
+    $role = strtolower(trim($user['role'] ?? ''));
+
+    if ($role === '') {
+        $role = 'farmer';
+    }
+
+    // =====================================================
+    // 3. DETERMINE DATA SCOPE
+    // =====================================================
+
+    /*
+     * ADMIN:
+     *   Can see all soil telemetry.
+     *
+     * FARMER:
+     *   Can ONLY see the node assigned to their own account.
+     *
+     * ASSIGNMENT:
+     *
+     *   users.id
+     *       ↓
+     *   sensor_data.user_id
+     *       ↓
+     *   sensor_data.device_label
+     *       ↓
+     *   soil_readings.device_id
+     *
+     * IMPORTANT:
+     * No device_id is accepted from GET, POST, or JavaScript.
+     */
+
+    $assignedDevice = null;
+
+    if ($role !== 'admin') {
+
+        $assignmentStmt = $conn->prepare("
+            SELECT device_label
+            FROM sensor_data
+            WHERE user_id = ?
+              AND device_label IS NOT NULL
+              AND TRIM(device_label) <> ''
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+
+        $assignmentStmt->execute([$userId]);
+
+        $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (
+            $assignment &&
+            isset($assignment['device_label']) &&
+            trim((string)$assignment['device_label']) !== ''
+        ) {
+
+            $assignedDevice = trim(
+                (string)$assignment['device_label']
+            );
+        }
+
+        /*
+         * No assigned node:
+         * NEVER fall back to global telemetry.
+         */
+
+        if ($assignedDevice === null) {
+
+            echo json_encode([
+                "status" => "empty",
+                "message" => "No node is assigned to this farmer account.",
+                "data" => null,
+                "recent_logs" => [],
+                "total_count" => 0,
+                "assigned_device" => null,
+                "role" => $role
+            ]);
+
+            exit;
+        }
+    }
+
+    // =====================================================
+    // 4. GET LATEST TELEMETRY
+    // =====================================================
+
+    if ($role === 'admin') {
+
+        $stmt = $conn->query("
+            SELECT *
+            FROM soil_readings
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+
+    } else {
+
+        $stmt = $conn->prepare("
+            SELECT *
+            FROM soil_readings
+            WHERE device_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+
+        $stmt->execute([$assignedDevice]);
+    }
+
+    $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // =====================================================
+    // 5. NO TELEMETRY FOUND
+    // =====================================================
+
+    if (!$latest) {
+
+        echo json_encode([
+            "status" => "empty",
+            "message" => "No telemetry data recorded for the assigned node.",
+            "data" => null,
+            "recent_logs" => [],
+            "total_count" => 0,
+            "assigned_device" => $assignedDevice,
+            "role" => $role
+        ]);
+
+        exit;
+    }
+
+    // =====================================================
+    // 6. LATEST VALUES
+    // =====================================================
+
+    $valMoisture = isset($latest['moisture'])
+        ? floatval($latest['moisture'])
+        : null;
+
+    $valPh = isset($latest['ph'])
+        ? floatval($latest['ph'])
+        : null;
+
+    $valN = isset($latest['nitrogen'])
+        ? intval($latest['nitrogen'])
+        : null;
+
+    $valP = isset($latest['phosphorus'])
+        ? intval($latest['phosphorus'])
+        : null;
+
+    $valK = isset($latest['potassium'])
+        ? intval($latest['potassium'])
+        : null;
+
+    $valTemp = isset($latest['temperature'])
+        ? floatval($latest['temperature'])
+        : null;
+
+    $createdAt = $latest['created_at']
+        ?? date('Y-m-d H:i:s');
+
+    $npkOnline = (
+        ($valN !== null && $valN > 0) ||
+        ($valP !== null && $valP > 0) ||
+        ($valK !== null && $valK > 0)
+    );
+
+    $formattedTime = date(
+        'M j, Y - g:i:s A',
+        strtotime($createdAt)
+    );
+
+    // =====================================================
+    // 7. LAST 7 READINGS FOR LIVE CHART
+    // =====================================================
+
+    if ($role === 'admin') {
+
+        $chartStmt = $conn->query("
+            SELECT moisture, created_at
+            FROM (
+                SELECT id, moisture, created_at
+                FROM soil_readings
+                ORDER BY id DESC
+                LIMIT 7
+            ) AS sub
+            ORDER BY id ASC
+        ");
+
+    } else {
+
+        $chartStmt = $conn->prepare("
+            SELECT moisture, created_at
+            FROM (
+                SELECT id, moisture, created_at
+                FROM soil_readings
+                WHERE device_id = ?
+                ORDER BY id DESC
+                LIMIT 7
+            ) AS sub
+            ORDER BY id ASC
+        ");
+
+        $chartStmt->execute([$assignedDevice]);
+    }
+
+    $chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $chartLabels = [];
     $chartData = [];
+
     foreach ($chartRows as $row) {
-        $chartLabels[] = date('g:i:s A', strtotime($row['created_at']));
-        $chartData[] = floatval($row['moisture']);
+
+        $chartLabels[] = date(
+            'g:i:s A',
+            strtotime($row['created_at'])
+        );
+
+        $chartData[] = floatval(
+            $row['moisture'] ?? 0
+        );
     }
 
-    // Fetch last 15 readings for real-time history table sync
-    $logsStmt = $conn->query("SELECT * FROM soil_readings ORDER BY id DESC LIMIT 15");
-    $recentLogs = $logsStmt ? $logsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    // =====================================================
+    // 8. LAST 15 READINGS FOR HISTORY TABLE
+    // =====================================================
+
+    if ($role === 'admin') {
+
+        $logsStmt = $conn->query("
+            SELECT *
+            FROM soil_readings
+            ORDER BY id DESC
+            LIMIT 15
+        ");
+
+    } else {
+
+        $logsStmt = $conn->prepare("
+            SELECT *
+            FROM soil_readings
+            WHERE device_id = ?
+            ORDER BY id DESC
+            LIMIT 15
+        ");
+
+        $logsStmt->execute([$assignedDevice]);
+    }
+
+    $recentLogs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
+
     $formattedLogs = [];
+
     foreach ($recentLogs as $log) {
+
         $formattedLogs[] = [
-            'id'             => (int)$log['id'],
-            'created_at'     => $log['created_at'] ?? '',
-            'formatted_time' => isset($log['created_at']) ? date("M j, Y - g:i A", strtotime($log['created_at'])) : 'N/A',
-            'moisture'       => floatval($log['moisture'] ?? 0),
-            'ph'             => floatval($log['ph'] ?? 0),
-            'nitrogen'       => intval($log['nitrogen'] ?? 0),
-            'phosphorus'     => intval($log['phosphorus'] ?? 0),
-            'potassium'      => intval($log['potassium'] ?? 0),
-            'temperature'    => floatval($log['temperature'] ?? 0)
+            'id' => (int)($log['id'] ?? 0),
+
+            'device_id' => $log['device_id'] ?? '',
+
+            'created_at' => $log['created_at'] ?? '',
+
+            'formatted_time' => isset($log['created_at'])
+                ? date(
+                    "M j, Y - g:i A",
+                    strtotime($log['created_at'])
+                )
+                : 'N/A',
+
+            'moisture' => floatval(
+                $log['moisture'] ?? 0
+            ),
+
+            'ph' => floatval(
+                $log['ph'] ?? 0
+            ),
+
+            'nitrogen' => intval(
+                $log['nitrogen'] ?? 0
+            ),
+
+            'phosphorus' => intval(
+                $log['phosphorus'] ?? 0
+            ),
+
+            'potassium' => intval(
+                $log['potassium'] ?? 0
+            ),
+
+            'temperature' => floatval(
+                $log['temperature'] ?? 0
+            )
         ];
     }
 
-    $totalCount = (int)$conn->query("SELECT COUNT(*) FROM soil_readings")->fetchColumn();
+    // =====================================================
+    // 9. TOTAL COUNT
+    // =====================================================
+
+    if ($role === 'admin') {
+
+        $countStmt = $conn->query("
+            SELECT COUNT(*)
+            FROM soil_readings
+        ");
+
+        $totalCount = (int)$countStmt->fetchColumn();
+
+    } else {
+
+        $countStmt = $conn->prepare("
+            SELECT COUNT(*)
+            FROM soil_readings
+            WHERE device_id = ?
+        ");
+
+        $countStmt->execute([$assignedDevice]);
+
+        $totalCount = (int)$countStmt->fetchColumn();
+    }
+
+    // =====================================================
+    // 10. RETURN JSON
+    // =====================================================
 
     echo json_encode([
         "status" => "success",
+
         "data" => [
-            "id"             => (int)($latest['id'] ?? 0),
-            "device_id"      => $latest['device_id'] ?? 'ESP32_GSM_01',
-            "moisture"       => $valMoisture,
-            "ph"             => $valPh,
-            "nitrogen"       => $valN,
-            "phosphorus"     => $valP,
-            "potassium"      => $valK,
-            "temperature"    => $valTemp,
-            "npk_online"     => $npkOnline,
-            "created_at"     => $createdAt,
+            "id" => (int)($latest['id'] ?? 0),
+
+            /*
+             * For farmers this can only be the assigned node
+             * because $latest itself was filtered by device_id.
+             */
+
+            "device_id" => $latest['device_id']
+                ?? $assignedDevice
+                ?? null,
+
+            "moisture" => $valMoisture,
+
+            "ph" => $valPh,
+
+            "nitrogen" => $valN,
+
+            "phosphorus" => $valP,
+
+            "potassium" => $valK,
+
+            "temperature" => $valTemp,
+
+            "npk_online" => $npkOnline,
+
+            "created_at" => $createdAt,
+
             "formatted_time" => $formattedTime,
-            "chart_labels"   => $chartLabels,
-            "chart_data"     => $chartData
+
+            "chart_labels" => $chartLabels,
+
+            "chart_data" => $chartData
         ],
+
         "recent_logs" => $formattedLogs,
-        "total_count" => $totalCount
+
+        "total_count" => $totalCount,
+
+        "assigned_device" => $assignedDevice,
+
+        "role" => $role
     ]);
+
 } catch (PDOException $e) {
+
     http_response_code(500);
+
     echo json_encode([
         "status" => "error",
-        "message" => "Database error: " . $e->getMessage()
+        "message" => "Database error."
+    ]);
+
+} catch (Throwable $e) {
+
+    http_response_code(500);
+
+    echo json_encode([
+        "status" => "error",
+        "message" => "Server error."
     ]);
 }
-
+?>
