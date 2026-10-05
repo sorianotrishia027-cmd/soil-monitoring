@@ -1,5 +1,6 @@
 <?php
 // api/get_node_contacts.php
+
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
@@ -10,44 +11,127 @@ ini_set('display_errors', 0);
 
 require_once '../config/db_connect.php';
 
-$device_id = trim($_GET['device_id'] ?? $_POST['device_id'] ?? 'ESP32_GSM_01');
+$device_id = trim(
+    $_GET['device_id']
+    ?? $_POST['device_id']
+    ?? 'ESP32_GSM_01'
+);
 
-function cleanPhoneNumber($raw) {
-    if (!$raw) return '';
-    $phone = preg_replace('/[^0-9+]/', '', trim($raw));
-    if (strlen($phone) >= 10) return $phone;
+/*
+|--------------------------------------------------------------------------
+| NORMALIZE PHONE NUMBER
+|--------------------------------------------------------------------------
+*/
+function cleanPhoneNumber($raw)
+{
+    if (!$raw) {
+        return '';
+    }
+
+    $phone = trim($raw);
+
+    // Remove spaces, dashes, parentheses, etc.
+    $phone = preg_replace('/[^0-9+]/', '', $phone);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Philippine number:
+    | 09171234567
+    | -> +639171234567
+    |--------------------------------------------------------------------------
+    */
+    if (preg_match('/^09[0-9]{9}$/', $phone)) {
+        return '+63' . substr($phone, 1);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Already international:
+    | +639171234567
+    |--------------------------------------------------------------------------
+    */
+    if (preg_match('/^\+639[0-9]{9}$/', $phone)) {
+        return $phone;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | International without +
+    | 639171234567
+    |--------------------------------------------------------------------------
+    */
+    if (preg_match('/^639[0-9]{9}$/', $phone)) {
+        return '+' . $phone;
+    }
+
     return '';
 }
 
 try {
-    // Kunin ang lahat ng registered Farmers at Admins na may nakalagay na phone_number / contact_number
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET REGISTERED FARMER CONTACT NUMBERS
+    |--------------------------------------------------------------------------
+    |
+    | The single source of truth is:
+    |
+    | users.contact_number
+    |
+    |--------------------------------------------------------------------------
+    */
+
     $stmt = $conn->query("
-        SELECT * 
-        FROM users 
-        WHERE (phone_number IS NOT NULL AND TRIM(phone_number) != '') 
-           OR (contact_number IS NOT NULL AND TRIM(contact_number) != '')
-        ORDER BY 
-          CASE WHEN LOWER(role) = 'farmer' THEN 1 WHEN LOWER(role) = 'admin' THEN 2 ELSE 3 END, 
-          id ASC
+        SELECT
+            id,
+            username,
+            fullname,
+            contact_number,
+            role
+        FROM users
+        WHERE LOWER(role) = 'farmer'
+          AND contact_number IS NOT NULL
+          AND TRIM(contact_number) != ''
+        ORDER BY id ASC
     ");
+
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $contacts = [];
-    foreach ($users as $u) {
-        $p = cleanPhoneNumber($u['phone_number'] ?? $u['contact_number'] ?? '');
-        if (!empty($p) && !in_array($p, $contacts)) {
-            $contacts[] = $p;
+
+    foreach ($users as $user) {
+
+        $phone = cleanPhoneNumber(
+            $user['contact_number'] ?? ''
+        );
+
+        if (
+            $phone !== '' &&
+            !in_array($phone, $contacts, true)
+        ) {
+            $contacts[] = $phone;
         }
     }
 
-    if (!empty($contacts)) {
-        // Ibalik ang phone numbers (e.g. 09128057380)
-        echo implode(' ', $contacts);
-        exit;
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | RETURN CONTACTS
+    |--------------------------------------------------------------------------
+    |
+    | Example:
+    |
+    | +639171234567 +639181234567
+    |
+    |--------------------------------------------------------------------------
+    */
 
-    echo "";
+    echo implode(' ', $contacts);
+
 } catch (PDOException $e) {
+
+    // Keep response empty so ESP32 does not try to parse PHP errors as numbers.
     echo "";
 }
+
+exit;
 ?>

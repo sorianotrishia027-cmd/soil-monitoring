@@ -1,175 +1,816 @@
 <?php
-// views/profile.php
-if (basename($_SERVER['PHP_SELF']) == 'profile.php') {
-    exit; // Direct access prevention if routed through dashboard.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-$message = '';
-$error = '';
+include "../config/db_connect.php";
 
-// Handle form submission for profile updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $phone_number = trim($_POST['phone_number'] ?? '');
-    $current_password = $_POST['current_password'] ?? '';
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+// =====================================================
+// ACCESS CONTROL
+// =====================================================
+if (!isset($_SESSION['user_id'])) {
+    echo "<p class='error'>Access denied. Please log in first.</p>";
+    exit;
+}
 
-    if (empty($username)) {
-        $error = "Username cannot be empty.";
-    } else {
-        try {
-            // Check if username is already taken by another user
-            $check_stmt = $conn->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
-            $check_stmt->execute([$username, $user_id]);
-            if ($check_stmt->fetch()) {
-                $error = "This username is already taken.";
-            } else {
-                // If updating password
-                if (!empty($current_password) || !empty($new_password)) {
-                    $pass_stmt = $conn->prepare("SELECT password FROM users WHERE id = ?");
-                    $pass_stmt->execute([$user_id]);
-                    $user_data = $pass_stmt->fetch(PDO::FETCH_ASSOC);
+$user_id = intval($_SESSION['user_id']);
+$user_role = strtolower($_SESSION['role'] ?? 'farmer');
 
-                    if ($user_data && password_verify($current_password, $user_data['password'])) {
-                        if ($new_password === $confirm_password) {
-                            if (strlen($new_password) >= 6) {
-                                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                                $update_stmt = $conn->prepare("UPDATE users SET username = ?, phone_number = ?, password = ? WHERE id = ?");
-                                $update_stmt->execute([$username, $phone_number, $hashed_password, $user_id]);
-                                $_SESSION['username'] = $username;
-                                $message = "Profile, contact number, and password updated successfully.";
-                            } else {
-                                $error = "New password must be at least 6 characters long.";
-                            }
-                        } else {
-                            $error = "New passwords do not match.";
-                        }
-                    } else {
-                        $error = "Incorrect current password.";
-                    }
+$is_admin = ($user_role === 'admin');
+$is_farmer = ($user_role === 'farmer');
+
+// =====================================================
+// PAGE LABELS BASED ON ROLE
+// =====================================================
+if ($is_admin) {
+    $profile_title = "Admin Profile";
+    $profile_subtitle = "Manage your administrator account information and security settings.";
+    $account_badge = "Administrator Account";
+} else {
+    $profile_title = "Farmer's Profile";
+    $profile_subtitle = "Manage your farmer account information and SMS alert contact details.";
+    $account_badge = "Farmer Account";
+}
+
+// =====================================================
+// MAKE SURE contact_number COLUMN EXISTS
+// =====================================================
+try {
+    $conn->exec("ALTER TABLE users ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
+} catch (PDOException $e) {
+    // Column already exists
+}
+
+// =====================================================
+// UPDATE PROFILE
+// =====================================================
+$action_msg = "";
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
+
+    $action = $_POST['form_action'];
+
+    // =================================================
+    // UPDATE ACCOUNT INFORMATION
+    // =================================================
+    if ($action === 'update_profile') {
+
+        $username = trim($_POST['username'] ?? '');
+        $contact_number = trim($_POST['contact_number'] ?? '');
+
+        if (empty($username)) {
+
+            $action_msg = "
+                <div class='alert danger'>
+                    Username cannot be empty.
+                </div>
+            ";
+
+        } else {
+
+            try {
+
+                // Check if username is already used by another account
+                $check_stmt = $conn->prepare("
+                    SELECT id
+                    FROM users
+                    WHERE username = ?
+                    AND id != ?
+                    LIMIT 1
+                ");
+
+                $check_stmt->execute([
+                    $username,
+                    $user_id
+                ]);
+
+                if ($check_stmt->fetch()) {
+
+                    $action_msg = "
+                        <div class='alert danger'>
+                            Username is already being used by another account.
+                        </div>
+                    ";
+
                 } else {
-                    // Update username and phone number only
-                    $update_stmt = $conn->prepare("UPDATE users SET username = ?, phone_number = ? WHERE id = ?");
-                    $update_stmt->execute([$username, $phone_number, $user_id]);
+
+                    $stmt = $conn->prepare("
+                        UPDATE users
+                        SET username = ?,
+                            contact_number = ?
+                        WHERE id = ?
+                    ");
+
+                    $stmt->execute([
+                        $username,
+                        $contact_number,
+                        $user_id
+                    ]);
+
+                    // Update session username if used elsewhere
                     $_SESSION['username'] = $username;
-                    $message = "Profile and contact number updated successfully.";
+
+                    $action_msg = "
+                        <div class='alert success'>
+                            ✅ Profile information updated successfully.
+                        </div>
+                    ";
                 }
+
+            } catch (PDOException $e) {
+
+                $action_msg = "
+                    <div class='alert danger'>
+                        Profile update failed.
+                    </div>
+                ";
             }
-        } catch (PDOException $e) {
-            $error = "Database error: " . $e->getMessage();
+        }
+    }
+
+    // =================================================
+    // CHANGE PASSWORD
+    // =================================================
+    if ($action === 'change_password') {
+
+        $current_password = $_POST['current_password'] ?? '';
+        $new_password = $_POST['new_password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        if (
+            empty($current_password) ||
+            empty($new_password) ||
+            empty($confirm_password)
+        ) {
+
+            $action_msg = "
+                <div class='alert warning'>
+                    Please complete all password fields.
+                </div>
+            ";
+
+        } elseif ($new_password !== $confirm_password) {
+
+            $action_msg = "
+                <div class='alert danger'>
+                    New passwords do not match.
+                </div>
+            ";
+
+        } elseif (strlen($new_password) < 6) {
+
+            $action_msg = "
+                <div class='alert warning'>
+                    New password must contain at least 6 characters.
+                </div>
+            ";
+
+        } else {
+
+            try {
+
+                // Get current password
+                $stmt = $conn->prepare("
+                    SELECT password
+                    FROM users
+                    WHERE id = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([$user_id]);
+
+                $user_password = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$user_password || !password_verify($current_password, $user_password['password'])) {
+
+                    $action_msg = "
+                        <div class='alert danger'>
+                            Current password is incorrect.
+                        </div>
+                    ";
+
+                } else {
+
+                    $hashed_password = password_hash(
+                        $new_password,
+                        PASSWORD_BCRYPT
+                    );
+
+                    $update_stmt = $conn->prepare("
+                        UPDATE users
+                        SET password = ?
+                        WHERE id = ?
+                    ");
+
+                    $update_stmt->execute([
+                        $hashed_password,
+                        $user_id
+                    ]);
+
+                    $action_msg = "
+                        <div class='alert success'>
+                            🔐 Password changed successfully.
+                        </div>
+                    ";
+                }
+
+            } catch (PDOException $e) {
+
+                $action_msg = "
+                    <div class='alert danger'>
+                        Password update failed.
+                    </div>
+                ";
+            }
         }
     }
 }
 
-// Fetch latest user details
+// =====================================================
+// GET CURRENT USER PROFILE
+// =====================================================
 try {
-    $user_stmt = $conn->prepare("SELECT username, role, phone_number, created_at FROM users WHERE id = ?");
-    $user_stmt->execute([$user_id]);
-    $current_user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+
+    $stmt = $conn->prepare("
+        SELECT
+            id,
+            username,
+            email,
+            fullname,
+            role,
+            contact_number,
+            created_at
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$user_id]);
+
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$profile) {
+        echo "
+            <div class='alert danger'>
+                User profile could not be found.
+            </div>
+        ";
+        exit;
+    }
+
 } catch (PDOException $e) {
-    $current_user = ['username' => $_SESSION['username'] ?? '', 'role' => $role ?? 'farmer', 'phone_number' => '', 'created_at' => 'N/A'];
+
+    echo "
+        <div class='alert danger'>
+            Unable to load profile information.
+        </div>
+    ";
+    exit;
 }
+
+$username = $profile['username'] ?? '';
+$email = $profile['email'] ?? '';
+$fullname = $profile['fullname'] ?? '';
+$contact_number = $profile['contact_number'] ?? '';
+$role = strtolower($profile['role'] ?? '');
+$created_at = $profile['created_at'] ?? '';
+
 ?>
 
-<div class="sub-view-panel-container" style="padding: 10px 5px;">
-    <div class="view-panel-header" style="margin-bottom: 25px;">
-        <h3 style="color: var(--primary-color); font-weight: 700; font-size: 1.5rem; margin-bottom: 6px;">My Account Profile</h3>
-        <p style="color: #657765; font-size: 0.95rem; margin: 0;">Manage your account credentials, security settings, SMS alert contact number, and access role.</p>
-    </div>
+<div class="sub-view-panel-container">
 
-    <?php if (!empty($message)): ?>
-        <div style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; color: #1b5e20; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <span><?= htmlspecialchars($message) ?></span>
-        </div>
-    <?php endif; ?>
+<!-- =================================================
+     PROFILE HEADER
+================================================== -->
+<div class="view-panel-header">
 
-    <?php if (!empty($error)): ?>
-        <div style="background-color: #ffebee; border-left: 4px solid #c62828; color: #b71c1c; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <span><?= htmlspecialchars($error) ?></span>
-        </div>
-    <?php endif; ?>
+    <h3><?= htmlspecialchars($profile_title) ?></h3>
 
-    <div style="background: #ffffff; border: 1px solid #d9e2d9; border-radius: 16px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); max-width: 750px;">
-        <form action="dashboard.php?page=profile" method="POST">
-            
-            <div style="margin-bottom: 22px;">
-                <label style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Account Role</label>
-                <div style="background: #f4f7f4; border: 1px solid #e2e8e2; border-radius: 10px; padding: 12px 15px; color: #556b55; font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
-                    <span><?= ucfirst(htmlspecialchars($current_user['role'] ?? 'farmer')) ?></span>
-                    <span style="font-size: 0.8rem; background: #e2ede2; color: #2e5a2e; padding: 3px 8px; border-radius: 6px;">System Managed</span>
-                </div>
-            </div>
+    <p>
+        <?= htmlspecialchars($profile_subtitle) ?>
+    </p>
 
-            <div style="margin-bottom: 25px;">
-                <label for="username" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Username</label>
-                <input type="text" id="username" name="username" value="<?= htmlspecialchars($current_user['username'] ?? '') ?>" required style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
-            </div>
-
-            <div style="margin-bottom: 25px;">
-                <label for="phone_number" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Mobile Number for SMS Alerts</label>
-                <input type="text" id="phone_number" name="phone_number" value="<?= htmlspecialchars($current_user['phone_number'] ?? '') ?>" placeholder="09XXXXXXXXX" style="width: 100%; padding: 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none; transition: border-color 0.2s;">
-                <span style="display: block; font-size: 0.78rem; color: #657765; margin-top: 5px;">Required for receiving automated SMS notifications during critical soil telemetry states.</span>
-            </div>
-
-            <div style="border-top: 1px solid #edf2ed; margin: 30px 0; padding-top: 25px;">
-                <h5 style="color: #2c3e2c; font-weight: 600; font-size: 1.1rem; margin-bottom: 6px;">Security & Password</h5>
-                <p style="color: #657765; font-size: 0.85rem; margin-bottom: 20px;">Leave blank if you do not want to modify your current password.</p>
-                
-                <div style="margin-bottom: 20px;">
-                    <label for="current_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Current Password</label>
-                    <div style="position: relative;">
-                        <input type="password" id="current_password" name="current_password" placeholder="••••••••••••" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
-                        <button type="button" onclick="togglePassword('current_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
-                            <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-                    <div>
-                        <label for="new_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">New Password</label>
-                        <div style="position: relative;">
-                            <input type="password" id="new_password" name="new_password" placeholder="Min. 6 characters" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
-                            <button type="button" onclick="togglePassword('new_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
-                                <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div>
-                        <label for="confirm_password" style="display: block; font-weight: 600; color: #2c3e2c; margin-bottom: 8px; font-size: 0.9rem;">Confirm Password</label>
-                        <div style="position: relative;">
-                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat new password" style="width: 100%; padding: 12px 45px 12px 15px; border: 1px solid #ccdccb; border-radius: 10px; font-size: 0.95rem; background: #fafbfc; color: #2c3e2c; outline: none;">
-                            <button type="button" onclick="togglePassword('confirm_password', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #657765; padding: 0; display: flex; align-items: center;">
-                                <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="submit" style="background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2); transition: opacity 0.2s;">Save Changes</button>
-            </div>
-        </form>
-    </div>
 </div>
 
-<script>
-function togglePassword(fieldId, btn) {
-    const inputField = document.getElementById(fieldId);
-    const svgIcon = btn.querySelector('.eye-icon');
-    
-    if (inputField.type === 'password') {
-        inputField.type = 'text';
-        svgIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
-        svgIcon.style.color = 'var(--primary-color)';
-    } else {
-        inputField.type = 'password';
-        svgIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-        svgIcon.style.color = '#657765';
-    }
-}
-</script>
+<?= $action_msg ?>
+
+<!-- =================================================
+     ACCOUNT SUMMARY
+================================================== -->
+<div class="insights-dashboard-split-row" style="margin-bottom: 30px;">
+
+    <div
+        class="action-alert-panel-card"
+        style="
+            background: #ffffff;
+            border: 1px solid #ccd4cc;
+        "
+    >
+
+        <h3
+            style="
+                margin-bottom: 15px;
+                color: var(--primary-color);
+            "
+        >
+            Account Information
+        </h3>
+
+        <div
+            style="
+                display: grid;
+                gap: 12px;
+            "
+        >
+
+            <div>
+                <span
+                    style="
+                        display: block;
+                        font-size: 12px;
+                        color: #777;
+                        margin-bottom: 3px;
+                    "
+                >
+                    Full Name
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars($fullname ?: 'Not provided') ?>
+                </strong>
+            </div>
+
+            <div>
+                <span
+                    style="
+                        display: block;
+                        font-size: 12px;
+                        color: #777;
+                        margin-bottom: 3px;
+                    "
+                >
+                    Email Address
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars($email) ?>
+                </strong>
+            </div>
+
+            <div>
+                <span
+                    style="
+                        display: block;
+                        font-size: 12px;
+                        color: #777;
+                        margin-bottom: 3px;
+                    "
+                >
+                    Account Role
+                </span>
+
+                <span
+                    class="status-pill"
+                    style="
+                        display: inline-block;
+                        margin-top: 3px;
+                        background: <?= $is_admin ? '#e3f2fd' : '#e8f5e9' ?>;
+                        color: <?= $is_admin ? '#0d47a1' : '#2e7d32' ?>;
+                    "
+                >
+                    <?= ucfirst(htmlspecialchars($role)) ?>
+                </span>
+            </div>
+
+            <div>
+                <span
+                    style="
+                        display: block;
+                        font-size: 12px;
+                        color: #777;
+                        margin-bottom: 3px;
+                    "
+                >
+                    Member Since
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars($created_at ?: 'Not available') ?>
+                </strong>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =================================================
+         ROLE NOTICE
+    ================================================== -->
+    <div
+        class="action-alert-panel-card"
+        style="
+            background: #ffffff;
+            border: 1px solid #ccd4cc;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        "
+    >
+
+        <div>
+
+            <h3 style="margin-bottom: 15px;">
+                <?= htmlspecialchars($account_badge) ?>
+            </h3>
+
+            <?php if ($is_farmer): ?>
+
+                <p
+                    style="
+                        font-size: 14px;
+                        line-height: 1.6;
+                        color: var(--text-muted);
+                    "
+                >
+                    Your mobile number is used by the soil monitoring
+                    system for SMS alerts when critical soil conditions
+                    are detected.
+                </p>
+
+                <p
+                    style="
+                        font-size: 13px;
+                        line-height: 1.6;
+                        color: #0b8a47;
+                        margin-top: 12px;
+                    "
+                >
+                    📱 <strong>SMS Alerts:</strong>
+                    Make sure your mobile number is correct so you can
+                    receive important soil monitoring notifications.
+                </p>
+
+            <?php else: ?>
+
+                <p
+                    style="
+                        font-size: 14px;
+                        line-height: 1.6;
+                        color: var(--text-muted);
+                    "
+                >
+                    You are currently signed in using an administrator
+                    account. You can manage your administrator account
+                    information and security settings from this page.
+                </p>
+
+                <p
+                    style="
+                        font-size: 13px;
+                        line-height: 1.6;
+                        color: #1565c0;
+                        margin-top: 12px;
+                    "
+                >
+                    🛡️ <strong>Administrator Access:</strong>
+                    Your account has administrative access to the
+                    cooperative management system.
+                </p>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- =================================================
+     EDIT PROFILE
+================================================== -->
+<div class="view-panel-header">
+
+    <h3>Update Profile Information</h3>
+
+</div>
+
+<div
+    class="action-alert-panel-card"
+    style="
+        background: #ffffff;
+        border: 1px solid #ccd4cc;
+        margin-bottom: 30px;
+    "
+>
+
+    <form
+        action=""
+        method="POST"
+    >
+
+        <input
+            type="hidden"
+            name="form_action"
+            value="update_profile"
+        >
+
+        <div
+            class="insights-dashboard-split-row"
+            style="gap: 20px;"
+        >
+
+            <!-- USERNAME -->
+            <div>
+
+                <label
+                    class="chip-label"
+                    style="
+                        text-align: left;
+                        display: block;
+                        margin-bottom: 5px;
+                    "
+                >
+                    Username
+                </label>
+
+                <div
+                    class="input-wrapper"
+                    style="background: #f4f6f4;"
+                >
+
+                    <input
+                        type="text"
+                        name="username"
+                        value="<?= htmlspecialchars($username) ?>"
+                        placeholder="Username"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+            <!-- FULL NAME -->
+            <div>
+
+                <label
+                    class="chip-label"
+                    style="
+                        text-align: left;
+                        display: block;
+                        margin-bottom: 5px;
+                    "
+                >
+                    Full Name
+                </label>
+
+                <div
+                    class="input-wrapper"
+                    style="background: #f4f6f4;"
+                >
+
+                    <input
+                        type="text"
+                        value="<?= htmlspecialchars($fullname) ?>"
+                        placeholder="Full Name"
+                        readonly
+                    >
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- EMAIL -->
+        <div style="margin-top: 15px;">
+
+            <label
+                class="chip-label"
+                style="
+                    text-align: left;
+                    display: block;
+                    margin-bottom: 5px;
+                "
+            >
+                Email Address
+            </label>
+
+            <div
+                class="input-wrapper"
+                style="background: #eeeeee;"
+            >
+
+                <input
+                    type="email"
+                    value="<?= htmlspecialchars($email) ?>"
+                    readonly
+                >
+
+            </div>
+
+        </div>
+
+        <!-- CONTACT NUMBER -->
+        <div style="margin-top: 15px;">
+
+            <label
+                class="chip-label"
+                style="
+                    text-align: left;
+                    display: block;
+                    margin-bottom: 5px;
+                "
+            >
+                <?php if ($is_farmer): ?>
+                    Mobile Number for SMS Alerts
+                <?php else: ?>
+                    Contact Number
+                <?php endif; ?>
+            </label>
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
+                <input
+                    type="tel"
+                    name="contact_number"
+                    value="<?= htmlspecialchars($contact_number) ?>"
+                    placeholder="09XXXXXXXXX"
+                    maxlength="20"
+                >
+
+            </div>
+
+            <?php if ($is_farmer): ?>
+
+                <small
+                    style="
+                        display: block;
+                        margin-top: 6px;
+                        color: #777;
+                    "
+                >
+                    Example: 09123456789
+                </small>
+
+            <?php endif; ?>
+
+        </div>
+
+        <button
+            type="submit"
+            class="mockup-login-btn"
+            style="margin-top: 20px;"
+        >
+            Save Profile Changes
+        </button>
+
+    </form>
+
+</div>
+
+<!-- =================================================
+     CHANGE PASSWORD
+================================================== -->
+<div class="view-panel-header">
+
+    <h3>Security Settings</h3>
+
+</div>
+
+<div
+    class="action-alert-panel-card"
+    style="
+        background: #ffffff;
+        border: 1px solid #ccd4cc;
+    "
+>
+
+    <h3
+        style="
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        "
+    >
+        Change Password
+    </h3>
+
+    <form
+        action=""
+        method="POST"
+    >
+
+        <input
+            type="hidden"
+            name="form_action"
+            value="change_password"
+        >
+
+        <!-- CURRENT PASSWORD -->
+        <div>
+
+            <label
+                class="chip-label"
+                style="
+                    text-align: left;
+                    display: block;
+                    margin-bottom: 5px;
+                "
+            >
+                Current Password
+            </label>
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
+                <input
+                    type="password"
+                    name="current_password"
+                    placeholder="Enter current password"
+                    required
+                >
+
+            </div>
+
+        </div>
+
+        <!-- NEW PASSWORD -->
+        <div style="margin-top: 15px;">
+
+            <label
+                class="chip-label"
+                style="
+                    text-align: left;
+                    display: block;
+                    margin-bottom: 5px;
+                "
+            >
+                New Password
+            </label>
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
+                <input
+                    type="password"
+                    name="new_password"
+                    placeholder="Enter new password"
+                    minlength="6"
+                    required
+                >
+
+            </div>
+
+        </div>
+
+        <!-- CONFIRM PASSWORD -->
+        <div style="margin-top: 15px;">
+
+            <label
+                class="chip-label"
+                style="
+                    text-align: left;
+                    display: block;
+                    margin-bottom: 5px;
+                "
+            >
+                Confirm New Password
+            </label>
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
+                <input
+                    type="password"
+                    name="confirm_password"
+                    placeholder="Confirm new password"
+                    minlength="6"
+                    required
+                >
+
+            </div>
+
+        </div>
+
+        <button
+            type="submit"
+            class="mockup-login-btn"
+            style="margin-top: 20px;"
+        >
+            Change Password
+        </button>
+
+    </form>
+
+</div>
+
+</div>
