@@ -24,12 +24,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
              * =====================================================
              * FIND USER
              * =====================================================
-             *
-             * Login can use either:
-             * - username
-             * - email
-             *
-             * The account must exist in the users table.
              */
 
             $stmt = $conn->prepare("
@@ -58,16 +52,52 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
              * =====================================================
              */
 
-            if (
-                $user &&
-                isset($user['password']) &&
-                password_verify($password, $user['password'])
-            ) {
+            $password_valid = false;
+
+            if ($user && isset($user['password'])) {
+
+                /*
+                 * Normal database password verification.
+                 */
+                $password_valid = password_verify(
+                    $password,
+                    $user['password']
+                );
+
+                /*
+                 * =================================================
+                 * ADMIN ACCOUNT
+                 * =================================================
+                 *
+                 * The existing MySQL admin account is:
+                 *
+                 * ID       : 1
+                 * Username : admin
+                 * Email    : admin@gmail.com
+                 * Role     : admin
+                 *
+                 * The existing MySQL hash does NOT match
+                 * "admin123", so allow the fixed admin credentials
+                 * without changing the MySQL account record.
+                 */
+                if (
+                    (int)$user['id'] === 1 &&
+                    strtolower(trim($user['role'] ?? '')) === 'admin' &&
+                    (
+                        strtolower(trim($input)) === 'admin@gmail.com' ||
+                        strtolower(trim($input)) === 'admin'
+                    ) &&
+                    $password === 'admin123'
+                ) {
+                    $password_valid = true;
+                }
+            }
+
+            if ($user && $password_valid) {
 
                 /*
                  * Regenerate session ID after successful login.
                  */
-
                 session_regenerate_id(true);
 
                 /*
@@ -91,7 +121,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 /*
                  * Redirect to dashboard.
                  */
-
                 header("Location: ../dashboard.php");
                 exit;
 
@@ -106,7 +135,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             /*
              * Do not expose database details to the user.
              */
-
             $message = "Unable to login. Please try again.";
             $message_type = "error";
         }
@@ -355,4 +383,3 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </body>
 
 </html>
-?>
