@@ -2,6 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
 include "../config/db_connect.php";
 
 if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
@@ -9,32 +10,61 @@ if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
     exit;
 }
 
-// Auto-add contact_number column if it doesn't exist yet
+// ==========================================================
+// ENSURE contact_number COLUMN EXISTS
+// ==========================================================
 try {
     $conn->exec("ALTER TABLE users ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+    // Column probably already exists.
+}
 
 $action_msg = "";
 
+// ==========================================================
+// FORM ACTIONS
+// ==========================================================
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
+
     $action = $_POST['form_action'];
 
+    // ======================================================
     // CREATE USER
+    // ======================================================
     if ($action === 'create_user') {
-        $username       = trim($_POST['username']       ?? '');
-        $email          = trim($_POST['email']          ?? '');
-        $fullname       = trim($_POST['fullname']       ?? '');
-        $password       = $_POST['password']            ?? '';
-        $role           = $_POST['role']                ?? 'farmer';
+
+        $username       = trim($_POST['username'] ?? '');
+        $email          = trim($_POST['email'] ?? '');
+        $fullname       = trim($_POST['fullname'] ?? '');
+        $password       = $_POST['password'] ?? '';
+        $role           = strtolower(trim($_POST['role'] ?? 'farmer'));
         $contact_number = trim($_POST['contact_number'] ?? '');
 
+        // Only allow valid system roles
+        if (!in_array($role, ['farmer', 'admin'], true)) {
+            $role = 'farmer';
+        }
+
         if (!empty($username) && !empty($email) && !empty($password)) {
+
             try {
-                $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
+                // Hash password before saving
+                $hashed_password = password_hash(
+                    $password,
+                    PASSWORD_BCRYPT
+                );
 
                 $stmt = $conn->prepare("
                     INSERT INTO users
-                    (username, email, fullname, password, role, contact_number)
+                    (
+                        username,
+                        email,
+                        fullname,
+                        password,
+                        role,
+                        contact_number
+                    )
                     VALUES (?, ?, ?, ?, ?, ?)
                 ");
 
@@ -47,66 +77,169 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_action'])) {
                     $contact_number
                 ]);
 
-                $action_msg = "<div class='alert success'>✅ Account for '$username' registered successfully!</div>";
+                $action_msg = "
+                    <div class='alert success'>
+                        ✅ Account for '" .
+                        htmlspecialchars($username, ENT_QUOTES, 'UTF-8') .
+                        "' registered successfully!
+                    </div>
+                ";
 
             } catch (PDOException $e) {
-                $action_msg = "<div class='alert danger'>Registration error: " . htmlspecialchars($e->getMessage()) . "</div>";
+
+                $action_msg = "
+                    <div class='alert danger'>
+                        Registration error: " .
+                        htmlspecialchars(
+                            $e->getMessage(),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) .
+                        "
+                    </div>
+                ";
             }
+
         } else {
-            $action_msg = "<div class='alert warning'>Please populate all required entry slots.</div>";
+
+            $action_msg = "
+                <div class='alert warning'>
+                    Please populate all required entry slots.
+                </div>
+            ";
         }
     }
 
+
+    // ======================================================
     // UPDATE USER
+    // ======================================================
     if ($action === 'update_user') {
-        $id             = intval($_POST['user_id']        ?? 0);
-        $role           = $_POST['role']                  ?? 'farmer';
-        $fullname       = trim($_POST['fullname']         ?? '');
-        $contact_number = trim($_POST['contact_number']   ?? '');
 
-        try {
-            $stmt = $conn->prepare("
-                UPDATE users
-                SET role = ?,
-                    fullname = ?,
-                    contact_number = ?
-                WHERE id = ?
-            ");
+        $id             = intval($_POST['user_id'] ?? 0);
+        $role           = strtolower(trim($_POST['role'] ?? 'farmer'));
+        $fullname       = trim($_POST['fullname'] ?? '');
+        $contact_number = trim($_POST['contact_number'] ?? '');
 
-            $stmt->execute([
-                $role,
-                $fullname,
-                $contact_number,
-                $id
-            ]);
+        // Only allow valid roles
+        if (!in_array($role, ['farmer', 'admin'], true)) {
+            $role = 'farmer';
+        }
 
-            $action_msg = "<div class='alert success'>Account updates applied successfully.</div>";
+        if ($id > 0) {
 
-        } catch (PDOException $e) {
-            $action_msg = "<div class='alert danger'>Update failed: " . htmlspecialchars($e->getMessage()) . "</div>";
+            try {
+
+                $stmt = $conn->prepare("
+                    UPDATE users
+                    SET
+                        role = ?,
+                        fullname = ?,
+                        contact_number = ?
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([
+                    $role,
+                    $fullname,
+                    $contact_number,
+                    $id
+                ]);
+
+                $action_msg = "
+                    <div class='alert success'>
+                        Account updates applied successfully.
+                    </div>
+                ";
+
+            } catch (PDOException $e) {
+
+                $action_msg = "
+                    <div class='alert danger'>
+                        Update failed: " .
+                        htmlspecialchars(
+                            $e->getMessage(),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) .
+                        "
+                    </div>
+                ";
+            }
+
+        } else {
+
+            $action_msg = "
+                <div class='alert warning'>
+                    Invalid user account selected.
+                </div>
+            ";
         }
     }
 
+
+    // ======================================================
     // DELETE USER
+    // ======================================================
     if ($action === 'delete_user') {
+
         $id = intval($_POST['user_id'] ?? 0);
 
         if ($id === intval($_SESSION['user_id'])) {
-            $action_msg = "<div class='alert danger'>Operational error: You cannot drop your own active root session profile.</div>";
+
+            $action_msg = "
+                <div class='alert danger'>
+                    Operational error: You cannot drop your own active root session profile.
+                </div>
+            ";
+
+        } elseif ($id <= 0) {
+
+            $action_msg = "
+                <div class='alert warning'>
+                    Invalid user account selected.
+                </div>
+            ";
+
         } else {
+
             try {
-                $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+
+                $stmt = $conn->prepare("
+                    DELETE FROM users
+                    WHERE id = ?
+                ");
+
                 $stmt->execute([$id]);
 
-                $action_msg = "<div class='alert success'>Account systematically purged from records.</div>";
+                $action_msg = "
+                    <div class='alert success'>
+                        Account systematically purged from records.
+                    </div>
+                ";
 
             } catch (PDOException $e) {
-                $action_msg = "<div class='alert danger'>Deletion failed: " . htmlspecialchars($e->getMessage()) . "</div>";
+
+                $action_msg = "
+                    <div class='alert danger'>
+                        Deletion failed: " .
+                        htmlspecialchars(
+                            $e->getMessage(),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) .
+                        "
+                    </div>
+                ";
             }
         }
     }
 }
 
+
+// ==========================================================
+// GET ALL USERS
+// ==========================================================
 $users_list = $conn->query("
     SELECT
         id,
@@ -118,25 +251,52 @@ $users_list = $conn->query("
     FROM users
     ORDER BY id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 
 <div class="sub-view-panel-container">
 
 <div class="view-panel-header">
+
     <h3>User Account Management Control Panel</h3>
-    <p>System access control: Provision new accounts, update clearance roles, or revoke cooperative database entries.</p>
+
+    <p>
+        System access control: Provision new accounts,
+        update clearance roles, or revoke cooperative database entries.
+    </p>
+
 </div>
+
 
 <?= $action_msg ?>
 
-<div class="insights-dashboard-split-row" style="margin-bottom: 30px;">
 
-    <!-- Register New User Form -->
-    <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc;">
+<div
+    class="insights-dashboard-split-row"
+    style="margin-bottom: 30px;"
+>
 
-        <h3 style="margin-bottom: 15px; color: var(--primary-color);">
+    <!-- ==================================================
+         REGISTER NEW USER
+         ================================================== -->
+
+    <div
+        class="action-alert-panel-card"
+        style="
+            background: #ffffff;
+            border: 1px solid #ccd4cc;
+        "
+    >
+
+        <h3
+            style="
+                margin-bottom: 15px;
+                color: var(--primary-color);
+            "
+        >
             Register New User
         </h3>
+
 
         <form
             action="dashboard.php?page=users_manage"
@@ -151,16 +311,31 @@ $users_list = $conn->query("
                 value="create_user"
             >
 
-            <div class="input-wrapper" style="background: #f4f6f4;">
+
+            <!-- FULL NAME -->
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
                 <input
                     type="text"
                     name="fullname"
                     placeholder="Full Name (e.g. Juan Dela Cruz)"
                     autocomplete="off"
                 >
+
             </div>
 
-            <div class="input-wrapper" style="background: #f4f6f4;">
+
+            <!-- USERNAME -->
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
                 <input
                     type="text"
                     name="username"
@@ -168,9 +343,17 @@ $users_list = $conn->query("
                     autocomplete="off"
                     required
                 >
+
             </div>
 
-            <div class="input-wrapper" style="background: #f4f6f4;">
+
+            <!-- EMAIL -->
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
                 <input
                     type="email"
                     name="email"
@@ -178,9 +361,17 @@ $users_list = $conn->query("
                     autocomplete="off"
                     required
                 >
+
             </div>
 
-            <div class="input-wrapper" style="background: #f4f6f4;">
+
+            <!-- CONTACT NUMBER -->
+
+            <div
+                class="input-wrapper"
+                style="background: #f4f6f4;"
+            >
+
                 <input
                     type="tel"
                     name="contact_number"
@@ -188,9 +379,16 @@ $users_list = $conn->query("
                     maxlength="20"
                     autocomplete="off"
                 >
+
             </div>
 
-            <!-- PASSWORD WITH EYE ICON -->
+
+            <!-- ==================================================
+                 PASSWORD
+                 NO DEFAULT VALUE
+                 GRAY OUTLINE EYE ICON
+                 ================================================== -->
+
             <div
                 class="input-wrapper"
                 style="
@@ -208,37 +406,82 @@ $users_list = $conn->query("
                     placeholder="Create Password"
                     autocomplete="new-password"
                     required
-                    style="padding-right: 45px;"
+                    style="
+                        padding-right: 48px;
+                    "
                 >
+
 
                 <button
                     type="button"
                     id="togglePasswordBtn"
                     onclick="toggleNewUserPassword()"
                     aria-label="Show password"
+                    title="Show password"
                     style="
                         position: absolute;
-                        right: 10px;
+                        right: 8px;
                         top: 50%;
                         transform: translateY(-50%);
-                        border: none;
+                        width: 36px;
+                        height: 36px;
+                        border: 1px solid #aeb7ae;
+                        border-radius: 8px;
                         background: transparent;
+                        color: #707770;
                         cursor: pointer;
-                        font-size: 20px;
-                        padding: 5px;
-                        line-height: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 0;
                     "
                 >
-                    👁️
+
+                    <!-- GRAY OUTLINE EYE -->
+                    <svg
+                        id="eyeIcon"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="19"
+                        height="19"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+
                 </button>
 
             </div>
 
-            <div class="role-selection-group" style="margin-top: 10px; text-align: left;">
 
-                <span class="chip-label" style="display:block; margin-bottom: 5px;">
+            <!-- ==================================================
+                 ROLE
+                 ================================================== -->
+
+            <div
+                class="role-selection-group"
+                style="
+                    margin-top: 10px;
+                    text-align: left;
+                "
+            >
+
+                <span
+                    class="chip-label"
+                    style="
+                        display: block;
+                        margin-bottom: 5px;
+                    "
+                >
                     Assigned Portal Scope:
                 </span>
+
 
                 <div class="grid-two-columns">
 
@@ -254,6 +497,7 @@ $users_list = $conn->query("
                         Farmer
 
                     </label>
+
 
                     <label class="selector-card">
 
@@ -271,6 +515,11 @@ $users_list = $conn->query("
 
             </div>
 
+
+            <!-- ==================================================
+                 CREATE BUTTON
+                 ================================================== -->
+
             <button
                 type="submit"
                 class="mockup-login-btn"
@@ -285,7 +534,10 @@ $users_list = $conn->query("
     </div>
 
 
-    <!-- Operational Directives -->
+    <!-- ==================================================
+         OPERATIONAL DIRECTIVES
+         ================================================== -->
+
     <div
         class="action-alert-panel-card"
         style="
@@ -303,28 +555,59 @@ $users_list = $conn->query("
                 Operational Directives
             </h3>
 
-            <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted);">
-                When updating user details or removing old profiles, double-check profiles to maintain accurate data mapping. Deleting a farmer's account completely cleans up their assigned entries from the historical system.
+
+            <p
+                style="
+                    font-size: 14px;
+                    line-height: 1.5;
+                    color: var(--text-muted);
+                "
+            >
+                When updating user details or removing old profiles,
+                double-check profiles to maintain accurate data mapping.
+                Deleting a farmer's account completely cleans up their
+                assigned entries from the historical system.
             </p>
 
-            <p style="font-size: 13px; line-height: 1.6; color: #0b8a47; margin-top: 12px;">
+
+            <p
+                style="
+                    font-size: 13px;
+                    line-height: 1.6;
+                    color: #0b8a47;
+                    margin-top: 12px;
+                "
+            >
                 📱 <strong>SMS Alerts:</strong>
-                The contact number entered will receive critical soil alert SMS directly from the system.
+                The contact number entered will receive critical soil
+                alert SMS directly from the system.
             </p>
 
         </div>
 
+
         <div
             class="nested-sub-recommends-box"
-            style="border-left-color: #1565c0; margin-top: 20px;"
+            style="
+                border-left-color: #1565c0;
+                margin-top: 20px;
+            "
         >
 
             <span class="muted-title">
                 COOPERATIVE METRICS
             </span>
 
-            <p style="font-weight: bold; font-size: 16px; margin-top: 5px;">
-                Total Profiles Linked: <?= count($users_list) ?>
+
+            <p
+                style="
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-top: 5px;
+                "
+            >
+                Total Profiles Linked:
+                <?= count($users_list) ?>
             </p>
 
         </div>
@@ -334,11 +617,18 @@ $users_list = $conn->query("
 </div>
 
 
-<!-- Registered Profiles Table -->
+<!-- ======================================================
+     REGISTERED PROFILES TABLE
+     ====================================================== -->
 
 <div class="view-panel-header">
-    <h3>Registered Cooperative Profiles</h3>
+
+    <h3>
+        Registered Cooperative Profiles
+    </h3>
+
 </div>
+
 
 <div
     class="history-table-wrapper"
@@ -369,45 +659,130 @@ $users_list = $conn->query("
                 "
             >
 
-                <th style="padding: 12px;">ID</th>
-                <th style="padding: 12px;">Full Name</th>
-                <th style="padding: 12px;">Username</th>
-                <th style="padding: 12px;">Email</th>
-                <th style="padding: 12px;">Contact No.</th>
-                <th style="padding: 12px;">Role</th>
-                <th style="padding: 12px; text-align: center;">Actions</th>
+                <th style="padding: 12px;">
+                    ID
+                </th>
+
+                <th style="padding: 12px;">
+                    Full Name
+                </th>
+
+                <th style="padding: 12px;">
+                    Username
+                </th>
+
+                <th style="padding: 12px;">
+                    Email
+                </th>
+
+                <th style="padding: 12px;">
+                    Contact No.
+                </th>
+
+                <th style="padding: 12px;">
+                    Role
+                </th>
+
+                <th
+                    style="
+                        padding: 12px;
+                        text-align: center;
+                    "
+                >
+                    Actions
+                </th>
 
             </tr>
 
         </thead>
+
 
         <tbody>
 
             <?php foreach ($users_list as $row): ?>
 
                 <?php
-                    $userPhone = trim($row['contact_number'] ?? '');
+
+                $userPhone = trim(
+                    $row['contact_number'] ?? ''
+                );
+
+                $safeFullname = htmlspecialchars(
+                    $row['fullname'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
+
+                $safeRole = htmlspecialchars(
+                    $row['role'] ?? 'farmer',
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
+
+                $safePhone = htmlspecialchars(
+                    $userPhone,
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
+
                 ?>
 
-                <tr style="border-bottom: 1px solid #f0f4f0;">
+                <tr
+                    style="
+                        border-bottom: 1px solid #f0f4f0;
+                    "
+                >
 
-                    <td style="padding: 12px; color: var(--text-muted);">
-                        <?= $row['id'] ?>
+                    <td
+                        style="
+                            padding: 12px;
+                            color: var(--text-muted);
+                        "
+                    >
+                        <?= intval($row['id']) ?>
                     </td>
 
-                    <td style="padding: 12px; font-weight: 600;">
+
+                    <td
+                        style="
+                            padding: 12px;
+                            font-weight: 600;
+                        "
+                    >
                         <?= htmlspecialchars(
-                            $row['fullname'] ?: 'No Name Provided'
+                            $row['fullname'] ?: 'No Name Provided',
+                            ENT_QUOTES,
+                            'UTF-8'
                         ) ?>
                     </td>
 
+
                     <td style="padding: 12px;">
-                        <?= htmlspecialchars($row['username']) ?>
+
+                        <?= htmlspecialchars(
+                            $row['username'],
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>
+
                     </td>
 
-                    <td style="padding: 12px; color: var(--text-muted);">
-                        <?= htmlspecialchars($row['email']) ?>
+
+                    <td
+                        style="
+                            padding: 12px;
+                            color: var(--text-muted);
+                        "
+                    >
+
+                        <?= htmlspecialchars(
+                            $row['email'],
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>
+
                     </td>
+
 
                     <td style="padding: 12px;">
 
@@ -423,18 +798,29 @@ $users_list = $conn->query("
                                     font-weight: 600;
                                 "
                             >
-                                📱 <?= htmlspecialchars($userPhone) ?>
+                                📱
+                                <?= htmlspecialchars(
+                                    $userPhone,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
                             </span>
 
                         <?php else: ?>
 
-                            <span style="color: #bbb; font-size: 12px;">
+                            <span
+                                style="
+                                    color: #bbb;
+                                    font-size: 12px;
+                                "
+                            >
                                 — not set —
                             </span>
 
                         <?php endif; ?>
 
                     </td>
+
 
                     <td style="padding: 12px;">
 
@@ -444,14 +830,31 @@ $users_list = $conn->query("
                                 ? 'background: #e3f2fd; color: #0d47a1;'
                                 : 'background: #e8f5e9; color: #2e7d32;' ?>"
                         >
-                            <?= ucfirst(htmlspecialchars($row['role'])) ?>
+
+                            <?= ucfirst(
+                                htmlspecialchars(
+                                    $row['role'],
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                )
+                            ) ?>
+
                         </span>
 
                     </td>
 
-                    <td style="padding: 12px; text-align: center;">
+
+                    <td
+                        style="
+                            padding: 12px;
+                            text-align: center;
+                        "
+                    >
+
+                        <!-- EDIT -->
 
                         <button
+                            type="button"
                             class="status-pill"
                             style="
                                 background: #e4ebe4;
@@ -461,15 +864,36 @@ $users_list = $conn->query("
                                 padding: 5px 10px;
                                 margin-right: 4px;
                             "
-                            onclick="openEditUserModal(
-                                <?= $row['id'] ?>,
-                                '<?= htmlspecialchars($row['fullname'] ?? '', ENT_QUOTES) ?>',
-                                '<?= htmlspecialchars($row['role'] ?? 'farmer', ENT_QUOTES) ?>',
-                                '<?= htmlspecialchars($userPhone, ENT_QUOTES) ?>'
-                            )"
+                            onclick='openEditUserModal(
+                                <?= intval($row["id"]) ?>,
+                                <?= json_encode(
+                                    $row["fullname"] ?? "",
+                                    JSON_HEX_TAG |
+                                    JSON_HEX_APOS |
+                                    JSON_HEX_AMP |
+                                    JSON_HEX_QUOT
+                                ) ?>,
+                                <?= json_encode(
+                                    $row["role"] ?? "farmer",
+                                    JSON_HEX_TAG |
+                                    JSON_HEX_APOS |
+                                    JSON_HEX_AMP |
+                                    JSON_HEX_QUOT
+                                ) ?>,
+                                <?= json_encode(
+                                    $userPhone,
+                                    JSON_HEX_TAG |
+                                    JSON_HEX_APOS |
+                                    JSON_HEX_AMP |
+                                    JSON_HEX_QUOT
+                                ) ?>
+                            )'
                         >
                             Edit
                         </button>
+
+
+                        <!-- DELETE -->
 
                         <form
                             action="dashboard.php?page=users_manage"
@@ -484,11 +908,13 @@ $users_list = $conn->query("
                                 value="delete_user"
                             >
 
+
                             <input
                                 type="hidden"
                                 name="user_id"
-                                value="<?= $row['id'] ?>"
+                                value="<?= intval($row['id']) ?>"
                             >
+
 
                             <button
                                 type="submit"
@@ -553,9 +979,15 @@ $users_list = $conn->query("
     "
 >
 
-    <h3 style="margin-bottom: 15px; color: var(--primary-color);">
+    <h3
+        style="
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        "
+    >
         Update User Profile
     </h3>
+
 
     <form
         action="dashboard.php?page=users_manage"
@@ -568,11 +1000,15 @@ $users_list = $conn->query("
             value="update_user"
         >
 
+
         <input
             type="hidden"
             name="user_id"
             id="modal_user_id"
         >
+
+
+        <!-- FULL NAME -->
 
         <label
             class="chip-label"
@@ -584,6 +1020,7 @@ $users_list = $conn->query("
         >
             Display Full Name:
         </label>
+
 
         <div
             class="input-wrapper"
@@ -601,6 +1038,8 @@ $users_list = $conn->query("
         </div>
 
 
+        <!-- CONTACT NUMBER -->
+
         <label
             class="chip-label"
             style="
@@ -612,6 +1051,7 @@ $users_list = $conn->query("
         >
             Contact Number:
         </label>
+
 
         <div
             class="input-wrapper"
@@ -629,17 +1069,26 @@ $users_list = $conn->query("
         </div>
 
 
+        <!-- ROLE -->
+
         <div
             class="role-selection-group"
-            style="margin-top: 15px; text-align: left;"
+            style="
+                margin-top: 15px;
+                text-align: left;
+            "
         >
 
             <span
                 class="chip-label"
-                style="display:block; margin-bottom: 5px;"
+                style="
+                    display: block;
+                    margin-bottom: 5px;
+                "
             >
                 System Security Privilege:
             </span>
+
 
             <div class="grid-two-columns">
 
@@ -655,6 +1104,7 @@ $users_list = $conn->query("
                     Farmer
 
                 </label>
+
 
                 <label class="selector-card">
 
@@ -673,6 +1123,8 @@ $users_list = $conn->query("
 
         </div>
 
+
+        <!-- MODAL BUTTONS -->
 
         <div
             style="
@@ -694,6 +1146,7 @@ $users_list = $conn->query("
                 Cancel
             </button>
 
+
             <button
                 type="submit"
                 class="mockup-login-btn"
@@ -712,67 +1165,188 @@ $users_list = $conn->query("
 
 <script>
 
+// ==========================================================
+// PASSWORD SHOW / HIDE
+// ==========================================================
+
 function toggleNewUserPassword() {
 
-    const passwordInput = document.getElementById('newUserPassword');
-    const toggleButton = document.getElementById('togglePasswordBtn');
+    const passwordInput =
+        document.getElementById('newUserPassword');
+
+    const toggleButton =
+        document.getElementById('togglePasswordBtn');
+
+    const eyeIcon =
+        document.getElementById('eyeIcon');
+
 
     if (passwordInput.type === 'password') {
 
         passwordInput.type = 'text';
 
-        toggleButton.innerHTML = '🙈';
-        toggleButton.setAttribute('aria-label', 'Hide password');
+        toggleButton.setAttribute(
+            'aria-label',
+            'Hide password'
+        );
+
+        toggleButton.setAttribute(
+            'title',
+            'Hide password'
+        );
+
+
+        // Eye with slash when password is visible
+        eyeIcon.innerHTML = `
+            <path d="M2 12s3.5-7 10-7c2.2 0 4.1.8 5.7 2"></path>
+            <path d="M22 12s-3.5 7-10 7c-2.2 0-4.1-.8-5.7-2"></path>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>
+            <path d="M3 3l18 18"></path>
+        `;
 
     } else {
 
         passwordInput.type = 'password';
 
-        toggleButton.innerHTML = '👁️';
-        toggleButton.setAttribute('aria-label', 'Show password');
+        toggleButton.setAttribute(
+            'aria-label',
+            'Show password'
+        );
 
+        toggleButton.setAttribute(
+            'title',
+            'Show password'
+        );
+
+
+        // Normal outline eye
+        eyeIcon.innerHTML = `
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        `;
     }
 }
 
 
-function openEditUserModal(id, fullname, role, contact_number) {
+// ==========================================================
+// EDIT USER MODAL
+// ==========================================================
 
-    document.getElementById('modal_user_id').value = id;
+function openEditUserModal(
+    id,
+    fullname,
+    role,
+    contact_number
+) {
 
-    document.getElementById('modal_fullname').value = fullname;
+    document.getElementById(
+        'modal_user_id'
+    ).value = id;
 
-    document.getElementById('modal_contact_number').value = contact_number;
 
-    if (role.toLowerCase() === 'admin') {
+    document.getElementById(
+        'modal_fullname'
+    ).value = fullname;
 
-        document.getElementById('modal_role_admin').checked = true;
+
+    document.getElementById(
+        'modal_contact_number'
+    ).value = contact_number;
+
+
+    if (
+        String(role).toLowerCase() === 'admin'
+    ) {
+
+        document.getElementById(
+            'modal_role_admin'
+        ).checked = true;
 
     } else {
 
-        document.getElementById('modal_role_farmer').checked = true;
-
+        document.getElementById(
+            'modal_role_farmer'
+        ).checked = true;
     }
 
-    document.getElementById('editUserModal').style.display = 'flex';
+
+    document.getElementById(
+        'editUserModal'
+    ).style.display = 'flex';
 }
 
+
+// ==========================================================
+// CLOSE MODAL
+// ==========================================================
 
 function closeEditUserModal() {
 
-    document.getElementById('editUserModal').style.display = 'none';
-
+    document.getElementById(
+        'editUserModal'
+    ).style.display = 'none';
 }
 
 
-// Close modal when clicking outside
-window.addEventListener('click', function(event) {
+// ==========================================================
+// CLOSE MODAL WHEN CLICKING OUTSIDE
+// ==========================================================
 
-    const modal = document.getElementById('editUserModal');
+window.addEventListener(
+    'click',
+    function(event) {
 
-    if (event.target === modal) {
-        closeEditUserModal();
+        const modal =
+            document.getElementById(
+                'editUserModal'
+            );
+
+        if (event.target === modal) {
+            closeEditUserModal();
+        }
     }
+);
 
-});
+
+// ==========================================================
+// PREVENT ACCIDENTAL DOUBLE SUBMISSION
+// ==========================================================
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function() {
+
+        const registerForm =
+            document.getElementById(
+                'registerForm'
+            );
+
+        const submitButton =
+            document.getElementById(
+                'btn_submit_account'
+            );
+
+
+        if (
+            registerForm &&
+            submitButton
+        ) {
+
+            registerForm.addEventListener(
+                'submit',
+                function() {
+
+                    submitButton.disabled = true;
+
+                    submitButton.style.opacity =
+                        '0.7';
+
+                    submitButton.innerText =
+                        'Creating Account...';
+                }
+            );
+        }
+    }
+);
 
 </script>
