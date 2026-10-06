@@ -525,7 +525,6 @@ try {
 
 } catch (PDOException $e) {
 
-    // Log the REAL database error on Railway.
     error_log(
         '[GET LIVE TELEMETRY][PDO] ' .
         $e->getMessage()
@@ -535,8 +534,25 @@ try {
 
     echo json_encode([
         "status" => "error",
-        "message" => "Database error."
+        "message" => "Database error.",
+        "debug" => $e->getMessage()
     ]);
+
+} catch (Throwable $e) {
+
+    error_log(
+        '[GET LIVE TELEMETRY][GENERAL] ' .
+        $e->getMessage()
+    );
+
+    http_response_code(500);
+
+    echo json_encode([
+        "status" => "error",
+        "message" => "Server error.",
+        "debug" => $e->getMessage()
+    ]);
+
 
 } catch (Throwable $e) {
 
