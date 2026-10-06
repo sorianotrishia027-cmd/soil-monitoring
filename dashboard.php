@@ -20,66 +20,7 @@ if ($user_id <= 0) {
 
 /*
 |--------------------------------------------------------------------------
-| SECURITY: ALLOWED PAGES
-|--------------------------------------------------------------------------
-*/
-
-$admin_exclusive_pages = [
-    'users_manage',
-    'devices_manage',
-    'system_reports'
-];
-
-$farmer_pages = [
-    'home',
-    'soil',
-    'alerts',
-    'recommendations',
-    'profile'
-];
-
-$admin_pages = [
-    'home',
-    'soil',
-    'users_manage',
-    'devices_manage',
-    'system_reports',
-    'profile'
-];
-
-/*
-|--------------------------------------------------------------------------
-| SECURITY: FARMER PAGE ACCESS
-|--------------------------------------------------------------------------
-*/
-
-if ($role === 'farmer') {
-
-    if (!in_array($page, $farmer_pages, true)) {
-        header("Location: dashboard.php?page=home");
-        exit;
-    }
-
-}
-
-/*
-|--------------------------------------------------------------------------
-| SECURITY: ADMIN PAGE ACCESS
-|--------------------------------------------------------------------------
-*/
-
-if ($role === 'admin') {
-
-    if (!in_array($page, $admin_pages, true)) {
-        header("Location: dashboard.php?page=home");
-        exit;
-    }
-
-}
-
-/*
-|--------------------------------------------------------------------------
-| VALIDATE USER ACCOUNT
+| VALIDATE USER ACCOUNT FIRST
 |--------------------------------------------------------------------------
 */
 
@@ -105,34 +46,97 @@ try {
     /*
     |--------------------------------------------------------------------------
     | IMPORTANT:
-    | Do not allow session role to disagree with database role.
+    | Always use the role stored in the database.
     |--------------------------------------------------------------------------
     */
 
     $databaseRole = strtolower(trim($currentUser['role'] ?? ''));
 
-    if ($databaseRole !== $role) {
+    if ($databaseRole !== 'admin' && $databaseRole !== 'farmer') {
+        $databaseRole = 'farmer';
+    }
 
+    if ($databaseRole !== $role) {
         $_SESSION['role'] = $databaseRole;
         $role = $databaseRole;
-
     }
 
 } catch (PDOException $e) {
 
     $currentUser = null;
+
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| FIND FARMER'S ASSIGNED NODE
+| SECURITY: ALLOWED PAGES
+|--------------------------------------------------------------------------
+*/
+
+$farmer_pages = [
+    'home',
+    'soil',
+    'alerts',
+    'recommendations',
+    'profile'
+];
+
+$admin_pages = [
+    'home',
+    'soil',
+    'users_manage',
+    'devices_manage',
+    'system_reports',
+    'profile'
+];
+
+
+/*
+|--------------------------------------------------------------------------
+| SECURITY: PAGE ACCESS
 |--------------------------------------------------------------------------
 |
-| IMPORTANT:
-| The farmer's data must be connected to their account.
+| This check is done AFTER validating the user's database role.
 |
-| We first try to find the node/device assignment through sensor_data.
+*/
+
+if ($role === 'farmer') {
+
+    if (!in_array($page, $farmer_pages, true)) {
+        header("Location: dashboard.php?page=home");
+        exit;
+    }
+
+} elseif ($role === 'admin') {
+
+    if (!in_array($page, $admin_pages, true)) {
+        header("Location: dashboard.php?page=home");
+        exit;
+    }
+
+} else {
+
+    header("Location: dashboard.php?page=home");
+    exit;
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FIND FARMER'S ASSIGNED NODE / DEVICE
+|--------------------------------------------------------------------------
+|
+| The system may contain either:
+|
+| sensor_data.device_id
+| sensor_data.device_label
+|
+| We check both.
+|
+| Most importantly, if possible, we verify that the candidate device
+| actually exists inside soil_readings.device_id.
 |
 */
 
@@ -145,36 +149,133 @@ if ($role === 'farmer') {
 
         /*
         |--------------------------------------------------------------------------
-        | OPTION 1:
-        | sensor_data contains user_id + device_id
+        | Get recent sensor assignments belonging to this farmer.
         |--------------------------------------------------------------------------
         */
 
         $nodeStmt = $conn->prepare("
-            SELECT device_id
+            SELECT
+                id,
+                device_id,
+                device_label
             FROM sensor_data
             WHERE user_id = ?
-              AND device_id IS NOT NULL
-              AND TRIM(device_id) <> ''
+              AND (
+                    (device_id IS NOT NULL AND TRIM(device_id) <> '')
+                    OR
+                    (device_label IS NOT NULL AND TRIM(device_label) <> '')
+                  )
             ORDER BY id DESC
-            LIMIT 1
         ");
 
         $nodeStmt->execute([$user_id]);
 
-        $nodeResult = $nodeStmt->fetch(PDO::FETCH_ASSOC);
+        $nodeRows = $nodeStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if ($nodeResult && !empty($nodeResult['device_id'])) {
 
-            $assigned_device_id = trim($nodeResult['device_id']);
+        /*
+        |--------------------------------------------------------------------------
+        | First try to find a candidate that actually exists in
+        | soil_readings.device_id.
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($nodeRows as $nodeRow) {
+
+            $candidateDeviceId = trim((string)($nodeRow['device_id'] ?? ''));
+            $candidateLabel    = trim((string)($nodeRow['device_label'] ?? ''));
+
+            $candidates = [];
+
+            if ($candidateDeviceId !== '') {
+                $candidates[] = $candidateDeviceId;
+            }
+
+            if ($candidateLabel !== '' && !in_array($candidateLabel, $candidates, true)) {
+                $candidates[] = $candidateLabel;
+            }
+
+            foreach ($candidates as $candidate) {
+
+                try {
+
+                    $checkStmt = $conn->prepare("
+                        SELECT id
+                        FROM soil_readings
+                        WHERE device_id = ?
+                        LIMIT 1
+                    ");
+
+                    $checkStmt->execute([$candidate]);
+
+                    if ($checkStmt->fetch(PDO::FETCH_ASSOC)) {
+
+                        $assigned_device_id = $candidate;
+                        $assigned_node_id = $nodeRow['id'] ?? null;
+
+                        break 2;
+                    }
+
+                } catch (PDOException $checkException) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Ignore this candidate and continue checking.
+                    |--------------------------------------------------------------------------
+                    */
+
+                }
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK:
+        | If no matching soil_readings device was found, use the latest
+        | valid device_id first, then device_label.
+        |--------------------------------------------------------------------------
+        */
+
+        if ($assigned_device_id === null && !empty($nodeRows)) {
+
+            foreach ($nodeRows as $nodeRow) {
+
+                $candidateDeviceId = trim((string)($nodeRow['device_id'] ?? ''));
+
+                if ($candidateDeviceId !== '') {
+
+                    $assigned_device_id = $candidateDeviceId;
+                    $assigned_node_id = $nodeRow['id'] ?? null;
+
+                    break;
+
+                }
+
+                $candidateLabel = trim((string)($nodeRow['device_label'] ?? ''));
+
+                if ($candidateLabel !== '') {
+
+                    $assigned_device_id = $candidateLabel;
+                    $assigned_node_id = $nodeRow['id'] ?? null;
+
+                    break;
+
+                }
+
+            }
 
         }
 
     } catch (PDOException $e) {
 
+        $assigned_node_id = null;
         $assigned_device_id = null;
 
     }
+
 }
 
 
@@ -187,13 +288,7 @@ if ($role === 'farmer') {
 |   Can see the latest system-wide telemetry.
 |
 | FARMER:
-|   Must NEVER receive global telemetry here.
-|
-|   If sensor_data contains user_id:
-|       get the latest record belonging to this farmer.
-|
-|   If the farmer has a device_id:
-|       soil_readings is filtered by that device.
+|   Can ONLY see telemetry belonging to the farmer's assigned device.
 |
 |--------------------------------------------------------------------------
 */
@@ -206,7 +301,8 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | ADMIN CAN VIEW SYSTEM-WIDE DATA
+        | ADMIN:
+        | System-wide latest telemetry.
         |--------------------------------------------------------------------------
         */
 
@@ -224,15 +320,11 @@ try {
         /*
         |--------------------------------------------------------------------------
         | FARMER:
-        | NEVER USE:
-        |
-        | SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1
-        |
-        | because that exposes another farmer's data.
+        | Only query the assigned device.
         |--------------------------------------------------------------------------
         */
 
-        if ($assigned_device_id !== null) {
+        if ($assigned_device_id !== null && trim($assigned_device_id) !== '') {
 
             $stmt = $conn->prepare("
                 SELECT *
@@ -248,16 +340,19 @@ try {
 
             $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        } else {
+        }
 
-            /*
-            |--------------------------------------------------------------------------
-            | FALLBACK:
-            | If no device assignment exists, try sensor_data ownership.
-            |
-            | This prevents showing another farmer's telemetry.
-            |--------------------------------------------------------------------------
-            */
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK:
+        |
+        | If there is no soil_readings record yet for the assigned device,
+        | try the farmer's own sensor_data record.
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$latest) {
 
             try {
 
@@ -295,14 +390,26 @@ try {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Sto Cristo Concepcion Farmers Agriculture Cooperative</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<link rel="stylesheet" href="css/style.css">
+    <title>
+        Sto Cristo Concepcion Farmers Agriculture Cooperative
+    </title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js"
+    ></script>
 
 </head>
 
@@ -310,13 +417,18 @@ try {
 
 <div class="dashboard-layout-wrapper">
 
+
     <aside class="sidebar-nav-panel">
 
         <div class="sidebar-brand-header">
 
             <div
                 class="circular-logo-icon"
-                style="font-weight: 800; font-size: 14px; color: var(--primary-color);"
+                style="
+                    font-weight: 800;
+                    font-size: 14px;
+                    color: var(--primary-color);
+                "
             >
                 SCC
             </div>
@@ -345,7 +457,9 @@ try {
                         <polyline points="9 22 9 12 15 12 15 22"/>
                     </svg>
 
-                    <span class="nav-text">Home</span>
+                    <span class="nav-text">
+                        Home
+                    </span>
 
                 </a>
 
@@ -375,7 +489,9 @@ try {
                             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                         </svg>
 
-                        <span class="nav-text">Manage Accounts</span>
+                        <span class="nav-text">
+                            Manage Accounts
+                        </span>
 
                     </a>
 
@@ -397,13 +513,42 @@ try {
                             stroke-width="2"
                             fill="none"
                         >
-                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                            <line x1="6" y1="6" x2="6.01" y2="6"/>
-                            <line x1="6" y1="18" x2="6.01" y2="18"/>
+                            <rect
+                                x="2"
+                                y="2"
+                                width="20"
+                                height="8"
+                                rx="2"
+                                ry="2"
+                            />
+
+                            <rect
+                                x="2"
+                                y="14"
+                                width="20"
+                                height="8"
+                                rx="2"
+                                ry="2"
+                            />
+
+                            <line
+                                x1="6"
+                                y1="6"
+                                x2="6.01"
+                                y2="6"
+                            />
+
+                            <line
+                                x1="6"
+                                y1="18"
+                                x2="6.01"
+                                y2="18"
+                            />
                         </svg>
 
-                        <span class="nav-text">Manage Hardware</span>
+                        <span class="nav-text">
+                            Manage Hardware
+                        </span>
 
                     </a>
 
@@ -425,12 +570,31 @@ try {
                             stroke-width="2"
                             fill="none"
                         >
-                            <line x1="18" y1="20" x2="18" y2="10"/>
-                            <line x1="12" y1="20" x2="12" y2="4"/>
-                            <line x1="6" y1="20" x2="6" y2="14"/>
+                            <line
+                                x1="18"
+                                y1="20"
+                                x2="18"
+                                y2="10"
+                            />
+
+                            <line
+                                x1="12"
+                                y1="20"
+                                x2="12"
+                                y2="4"
+                            />
+
+                            <line
+                                x1="6"
+                                y1="20"
+                                x2="6"
+                                y2="14"
+                            />
                         </svg>
 
-                        <span class="nav-text">All Sensor Data</span>
+                        <span class="nav-text">
+                            All Sensor Data
+                        </span>
 
                     </a>
 
@@ -454,11 +618,23 @@ try {
                         >
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <line
+                                x1="16"
+                                y1="13"
+                                x2="8"
+                                y2="13"
+                            />
+                            <line
+                                x1="16"
+                                y1="17"
+                                x2="8"
+                                y2="17"
+                            />
                         </svg>
 
-                        <span class="nav-text">System Reports</span>
+                        <span class="nav-text">
+                            System Reports
+                        </span>
 
                     </a>
 
@@ -481,12 +657,31 @@ try {
                             stroke-width="2"
                             fill="none"
                         >
-                            <line x1="18" y1="20" x2="18" y2="10"/>
-                            <line x1="12" y1="20" x2="12" y2="4"/>
-                            <line x1="6" y1="20" x2="6" y2="14"/>
+                            <line
+                                x1="18"
+                                y1="20"
+                                x2="18"
+                                y2="10"
+                            />
+
+                            <line
+                                x1="12"
+                                y1="20"
+                                x2="12"
+                                y2="4"
+                            />
+
+                            <line
+                                x1="6"
+                                y1="20"
+                                x2="6"
+                                y2="14"
+                            />
                         </svg>
 
-                        <span class="nav-text">My Soil Data</span>
+                        <span class="nav-text">
+                            My Soil Data
+                        </span>
 
                     </a>
 
@@ -509,11 +704,23 @@ try {
                             fill="none"
                         >
                             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            <line
+                                x1="12"
+                                y1="9"
+                                x2="12"
+                                y2="13"
+                            />
+                            <line
+                                x1="12"
+                                y1="17"
+                                x2="12.01"
+                                y2="17"
+                            />
                         </svg>
 
-                        <span class="nav-text">My Alerts</span>
+                        <span class="nav-text">
+                            My Alerts
+                        </span>
 
                     </a>
 
@@ -538,7 +745,9 @@ try {
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                         </svg>
 
-                        <span class="nav-text">Recommendations</span>
+                        <span class="nav-text">
+                            Recommendations
+                        </span>
 
                     </a>
 
@@ -563,10 +772,16 @@ try {
                         fill="none"
                     >
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
+                        <circle
+                            cx="12"
+                            cy="7"
+                            r="4"
+                        />
                     </svg>
 
-                    <span class="nav-text">My Profile</span>
+                    <span class="nav-text">
+                        My Profile
+                    </span>
 
                 </a>
 
@@ -592,10 +807,17 @@ try {
                 >
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                     <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                    <line
+                        x1="21"
+                        y1="12"
+                        x2="9"
+                        y2="12"
+                    />
                 </svg>
 
-                <span class="nav-text">Logout</span>
+                <span class="nav-text">
+                    Logout
+                </span>
 
             </a>
 
@@ -615,8 +837,11 @@ try {
             <div class="header-action-widgets">
 
                 <span class="user-badge">
+
                     <?= htmlspecialchars($_SESSION['username'] ?? 'User') ?>
+
                     (<?= ucfirst($role) ?>)
+
                 </span>
 
             </div>
@@ -631,49 +856,74 @@ try {
             switch ($page) {
 
                 case 'soil':
+
                     include 'views/soil_data.php';
+
                     break;
+
 
                 case 'alerts':
+
                     include 'views/alerts.php';
+
                     break;
 
+
                 case 'recommendations':
+
                     include 'views/recommendations.php';
+
                     break;
+
 
                 case 'users_manage':
 
                     if ($role === 'admin') {
+
                         include 'views/users_manage.php';
+
                     }
 
                     break;
+
 
                 case 'devices_manage':
 
                     if ($role === 'admin') {
+
                         include 'views/devices_manage.php';
+
                     }
 
                     break;
+
 
                 case 'system_reports':
 
                     if ($role === 'admin') {
+
                         include 'views/system_reports.php';
+
                     }
 
                     break;
 
+
                 case 'profile':
+
                     include 'views/profile.php';
+
                     break;
 
+
                 case 'home':
+
                 default:
+
                     include 'views/home.php';
+
                     break;
+
             }
 
             ?>
