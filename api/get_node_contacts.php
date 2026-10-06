@@ -74,9 +74,9 @@ try {
     | GET REGISTERED FARMER CONTACT NUMBERS
     |--------------------------------------------------------------------------
     |
-    | The single source of truth is:
+    | The actual database column is:
     |
-    | users.contact_number
+    | users.phone_number
     |
     |--------------------------------------------------------------------------
     */
@@ -86,12 +86,12 @@ try {
             id,
             username,
             fullname,
-            contact_number,
+            phone_number,
             role
         FROM users
         WHERE LOWER(role) = 'farmer'
-          AND contact_number IS NOT NULL
-          AND TRIM(contact_number) != ''
+          AND phone_number IS NOT NULL
+          AND TRIM(phone_number) != ''
         ORDER BY id ASC
     ");
 
@@ -102,7 +102,7 @@ try {
     foreach ($users as $user) {
 
         $phone = cleanPhoneNumber(
-            $user['contact_number'] ?? ''
+            $user['phone_number'] ?? ''
         );
 
         if (
@@ -120,7 +120,7 @@ try {
     |
     | Example:
     |
-    | +639171234567 +639181234567
+    | +639924996572 +639128057380
     |
     |--------------------------------------------------------------------------
     */
@@ -129,7 +129,7 @@ try {
 
 } catch (PDOException $e) {
 
-    // Keep response empty so ESP32 does not try to parse PHP errors as numbers.
+    // Keep response empty so ESP32 does not parse PHP errors as phone numbers.
     echo "";
 }
 

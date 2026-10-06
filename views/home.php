@@ -52,9 +52,6 @@ try {
 | GET ASSIGNED NODE FOR FARMER
 |--------------------------------------------------------------------------
 |
-| EXACT SAME NODE-ASSIGNMENT LOGIC USED BY
-| api/get_live_telemetry.php
-|
 | users.id
 |     ↓
 | sensor_data.user_id
@@ -104,13 +101,6 @@ try {
 
     if ($role === 'admin') {
 
-        /*
-        |--------------------------------------------------------------------------
-        | ADMIN:
-        | Can see latest system-wide telemetry.
-        |--------------------------------------------------------------------------
-        */
-
         $stmt = $conn->query("
             SELECT *
             FROM soil_readings
@@ -121,13 +111,6 @@ try {
         $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
     } elseif ($assigned_device_id !== null) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | FARMER:
-        | ONLY the assigned device.
-        |--------------------------------------------------------------------------
-        */
 
         $stmt = $conn->prepare("
             SELECT *
@@ -145,13 +128,6 @@ try {
 
     } else {
 
-        /*
-        |--------------------------------------------------------------------------
-        | FARMER WITHOUT ASSIGNMENT:
-        | NEVER FALL BACK TO GLOBAL DATA.
-        |--------------------------------------------------------------------------
-        */
-
         $latest = null;
     }
 
@@ -163,8 +139,18 @@ try {
 
 /*
 |--------------------------------------------------------------------------
-| HISTORICAL MOISTURE DATA
+| HISTORICAL ANALYTICAL DATA
 |--------------------------------------------------------------------------
+|
+| Get the latest 20 records for:
+|
+| moisture
+| ph
+| temperature
+| nitrogen
+| phosphorus
+| potassium
+|
 */
 
 try {
@@ -172,29 +158,47 @@ try {
     if ($role === 'admin') {
 
         $history_stmt = $conn->query("
-            SELECT moisture, created_at
+            SELECT
+                id,
+                moisture,
+                ph,
+                temperature,
+                nitrogen,
+                phosphorus,
+                potassium,
+                created_at
             FROM soil_readings
             ORDER BY created_at DESC, id DESC
-            LIMIT 7
+            LIMIT 20
         ");
 
-        $history_records = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
+        $history_records =
+            $history_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     } elseif ($assigned_device_id !== null) {
 
         $history_stmt = $conn->prepare("
-            SELECT moisture, created_at
+            SELECT
+                id,
+                moisture,
+                ph,
+                temperature,
+                nitrogen,
+                phosphorus,
+                potassium,
+                created_at
             FROM soil_readings
             WHERE device_id = ?
             ORDER BY created_at DESC, id DESC
-            LIMIT 7
+            LIMIT 20
         ");
 
         $history_stmt->execute([
             $assigned_device_id
         ]);
 
-        $history_records = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
+        $history_records =
+            $history_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     } else {
 
@@ -216,7 +220,13 @@ try {
 $history_records = array_reverse($history_records);
 
 $chart_labels = [];
-$chart_data = [];
+
+$moisture_data = [];
+$ph_data = [];
+$temperature_data = [];
+$nitrogen_data = [];
+$phosphorus_data = [];
+$potassium_data = [];
 
 foreach ($history_records as $rec) {
 
@@ -229,9 +239,35 @@ foreach ($history_records as $rec) {
         strtotime($rec['created_at'])
     );
 
-    $chart_data[] = isset($rec['moisture'])
-        ? (float)$rec['moisture']
-        : 0;
+    $moisture_data[] =
+        isset($rec['moisture'])
+            ? (float)$rec['moisture']
+            : null;
+
+    $ph_data[] =
+        isset($rec['ph'])
+            ? (float)$rec['ph']
+            : null;
+
+    $temperature_data[] =
+        isset($rec['temperature'])
+            ? (float)$rec['temperature']
+            : null;
+
+    $nitrogen_data[] =
+        isset($rec['nitrogen'])
+            ? (float)$rec['nitrogen']
+            : null;
+
+    $phosphorus_data[] =
+        isset($rec['phosphorus'])
+            ? (float)$rec['phosphorus']
+            : null;
+
+    $potassium_data[] =
+        isset($rec['potassium'])
+            ? (float)$rec['potassium']
+            : null;
 }
 
 
@@ -241,10 +277,16 @@ foreach ($history_records as $rec) {
 |--------------------------------------------------------------------------
 */
 
-if (empty($chart_data)) {
+if (empty($chart_labels)) {
 
     $chart_labels = ['Awaiting Data'];
-    $chart_data = [0];
+
+    $moisture_data = [0];
+    $ph_data = [0];
+    $temperature_data = [0];
+    $nitrogen_data = [0];
+    $phosphorus_data = [0];
+    $potassium_data = [0];
 }
 
 
@@ -267,9 +309,13 @@ if ($latest) {
         : null;
 
     if (
-        ($moisture !== null && ($moisture < 20 || $moisture > 80)) ||
-        ($ph !== null && ($ph < 5.5 || $ph > 7.5))
+        ($moisture !== null &&
+            ($moisture < 20 || $moisture > 80)) ||
+
+        ($ph !== null &&
+            ($ph < 5.5 || $ph > 7.5))
     ) {
+
         $soilStatus = "WARNING";
     }
 }
@@ -277,6 +323,11 @@ if ($latest) {
 ?>
 
 <div class="home-view-grid">
+
+
+<!-- =========================================================
+     SUMMARY TELEMETRY
+     ========================================================= -->
 
 <div class="summary-telemetry-strip">
 
@@ -290,12 +341,17 @@ if ($latest) {
             class="chip-val"
             id="home-val-moisture"
         >
+
             <?= $latest && isset($latest['moisture'])
                 ? htmlspecialchars(
-                    number_format((float)$latest['moisture'], 1)
+                    number_format(
+                        (float)$latest['moisture'],
+                        1
+                    )
                 ) . '%'
                 : '--'
             ?>
+
         </span>
 
     </div>
@@ -311,12 +367,17 @@ if ($latest) {
             class="chip-val"
             id="home-val-ph"
         >
+
             <?= $latest && isset($latest['ph'])
                 ? htmlspecialchars(
-                    number_format((float)$latest['ph'], 1)
+                    number_format(
+                        (float)$latest['ph'],
+                        1
+                    )
                 )
                 : '--'
             ?>
+
         </span>
 
     </div>
@@ -332,12 +393,17 @@ if ($latest) {
             class="chip-val"
             id="home-val-temp"
         >
+
             <?= $latest && isset($latest['temperature'])
                 ? htmlspecialchars(
-                    number_format((float)$latest['temperature'], 1)
+                    number_format(
+                        (float)$latest['temperature'],
+                        1
+                    )
                 ) . '°C'
                 : '--'
             ?>
+
         </span>
 
     </div>
@@ -350,13 +416,23 @@ if ($latest) {
         </span>
 
         <span class="chip-val sub-text-alert">
-            <?= htmlspecialchars(ucfirst($role)) ?> Portal
+
+            <?= htmlspecialchars(
+                ucfirst($role)
+            ) ?>
+
+            Portal
+
         </span>
 
     </div>
 
 </div>
 
+
+<!-- =========================================================
+     NPK HERO
+     ========================================================= -->
 
 <div class="npk-hero-card">
 
@@ -369,24 +445,33 @@ if ($latest) {
         NPK:
 
         <?= $latest
-            ? htmlspecialchars($latest['nitrogen'] ?? '--')
+            ? htmlspecialchars(
+                $latest['nitrogen'] ?? '--'
+            )
             . ' / '
-            . htmlspecialchars($latest['phosphorus'] ?? '--')
+            . htmlspecialchars(
+                $latest['phosphorus'] ?? '--'
+            )
             . ' / '
-            . htmlspecialchars($latest['potassium'] ?? '--')
+            . htmlspecialchars(
+                $latest['potassium'] ?? '--'
+            )
             : '-- -- --'
         ?>
 
     </h1>
+
 
     <div class="badge-row">
 
         <span
             id="home-val-badge"
             class="status-pill <?= $latest
-                ? ($soilStatus === 'OPTIMAL'
-                    ? 'optimal-green'
-                    : 'warning-red')
+                ? (
+                    $soilStatus === 'OPTIMAL'
+                        ? 'optimal-green'
+                        : 'warning-red'
+                )
                 : ''
             ?>"
             style="<?= !$latest
@@ -407,7 +492,12 @@ if ($latest) {
 </div>
 
 
+<!-- =========================================================
+     STATUS + LIVE INFO
+     ========================================================= -->
+
 <div class="insights-dashboard-split-row">
+
 
     <div class="action-alert-panel-card">
 
@@ -430,9 +520,11 @@ if ($latest) {
             id="home-val-status-box"
             style="border-left-color:
                 <?= $latest
-                    ? ($soilStatus === 'OPTIMAL'
-                        ? '#4caf50'
-                        : '#e65100')
+                    ? (
+                        $soilStatus === 'OPTIMAL'
+                            ? '#4caf50'
+                            : '#e65100'
+                    )
                     : '#ccd4cc'
                 ?>;"
         >
@@ -443,17 +535,24 @@ if ($latest) {
 
             <p id="home-val-status-desc">
 
-                <?php if ($latest && isset($latest['created_at'])): ?>
+                <?php if (
+                    $latest &&
+                    isset($latest['created_at'])
+                ): ?>
 
                     Last updated:
+
                     <?= date(
                         'M j, g:i A',
-                        strtotime($latest['created_at'])
+                        strtotime(
+                            $latest['created_at']
+                        )
                     ) ?>
 
                 <?php else: ?>
 
-                    System is ready. Awaiting data inputs.
+                    System is ready.
+                    Awaiting data inputs.
 
                 <?php endif; ?>
 
@@ -464,56 +563,41 @@ if ($latest) {
     </div>
 
 
-    <div class="analytical-chart-card">
+    <div class="action-alert-panel-card">
 
-        <div
-            style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 10px;
-            "
-        >
+        <h3>
+            Live Telemetry
+        </h3>
 
-            <h3 style="margin: 0;">
-                Moisture Trend
-            </h3>
+        <p>
+            Real-time soil sensor monitoring is active.
+        </p>
 
-            <span
-                style="
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: #2e7d32;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                "
-            >
+        <div class="nested-sub-recommends-box">
 
-                <span
-                    style="
-                        display: inline-block;
-                        width: 8px;
-                        height: 8px;
-                        border-radius: 50%;
-                        background-color: #2e7d32;
-                        box-shadow:
-                            0 0 0 0
-                            rgba(46, 125, 50, 0.7);
-                        animation: livePulse 1.8s infinite;
-                    "
-                ></span>
-
-                LIVE REAL-TIME STREAM
-
+            <span class="muted-title">
+                NODE
             </span>
 
-        </div>
+            <p>
 
+                <?php if ($role === 'admin'): ?>
 
-        <div class="canvas-chart-wrapper">
+                    System-wide monitoring
 
-            <canvas id="moistureTrendChart"></canvas>
+                <?php elseif ($assigned_device_id): ?>
+
+                    <?= htmlspecialchars(
+                        $assigned_device_id
+                    ) ?>
+
+                <?php else: ?>
+
+                    No node assigned
+
+                <?php endif; ?>
+
+            </p>
 
         </div>
 
@@ -521,110 +605,567 @@ if ($latest) {
 
 </div>
 
+
+<!-- =========================================================
+     ANALYTICAL DASHBOARD
+     ========================================================= -->
+
+<div class="analytical-section-header">
+
+    <div>
+
+        <h3>
+            Analytical Dashboard
+        </h3>
+
+        <p>
+            Historical analysis of soil and nutrient conditions.
+        </p>
+
+    </div>
+
+    <span class="analytical-live-indicator">
+
+        <span class="analytical-live-dot"></span>
+
+        LIVE ANALYTICS
+
+    </span>
+
+</div>
+
+
+<!-- =========================================================
+     MOISTURE ANALYTICAL
+     ========================================================= -->
+
+<div class="analytical-chart-card">
+
+    <div class="analytical-chart-header">
+
+        <div>
+
+            <h3>
+                Soil Moisture Analysis
+            </h3>
+
+            <p>
+                Moisture percentage over time.
+            </p>
+
+        </div>
+
+        <span class="analytical-unit">
+            %
+        </span>
+
+    </div>
+
+
+    <div class="analytical-chart-wrapper">
+
+        <canvas id="moistureTrendChart"></canvas>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     PH + TEMPERATURE
+     ========================================================= -->
+
+<div class="analytical-chart-grid">
+
+
+    <div class="analytical-chart-card">
+
+        <div class="analytical-chart-header">
+
+            <div>
+
+                <h3>
+                    pH Analysis
+                </h3>
+
+                <p>
+                    Soil acidity and alkalinity trend.
+                </p>
+
+            </div>
+
+            <span class="analytical-unit">
+                pH
+            </span>
+
+        </div>
+
+
+        <div class="analytical-chart-wrapper">
+
+            <canvas id="phTrendChart"></canvas>
+
+        </div>
+
+    </div>
+
+
+    <div class="analytical-chart-card">
+
+        <div class="analytical-chart-header">
+
+            <div>
+
+                <h3>
+                    Temperature Analysis
+                </h3>
+
+                <p>
+                    Soil temperature trend.
+                </p>
+
+            </div>
+
+            <span class="analytical-unit">
+                °C
+            </span>
+
+        </div>
+
+
+        <div class="analytical-chart-wrapper">
+
+            <canvas id="temperatureTrendChart"></canvas>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     NPK ANALYTICAL
+     ========================================================= -->
+
+<div class="analytical-chart-grid">
+
+
+    <!-- NITROGEN -->
+
+    <div class="analytical-chart-card">
+
+        <div class="analytical-chart-header">
+
+            <div>
+
+                <h3>
+                    Nitrogen Analysis
+                </h3>
+
+                <p>
+                    Nitrogen concentration over time.
+                </p>
+
+            </div>
+
+            <span class="analytical-unit">
+                mg/kg
+            </span>
+
+        </div>
+
+
+        <div class="analytical-chart-wrapper">
+
+            <canvas id="nitrogenTrendChart"></canvas>
+
+        </div>
+
+    </div>
+
+
+    <!-- PHOSPHORUS -->
+
+    <div class="analytical-chart-card">
+
+        <div class="analytical-chart-header">
+
+            <div>
+
+                <h3>
+                    Phosphorus Analysis
+                </h3>
+
+                <p>
+                    Phosphorus concentration over time.
+                </p>
+
+            </div>
+
+            <span class="analytical-unit">
+                mg/kg
+            </span>
+
+        </div>
+
+
+        <div class="analytical-chart-wrapper">
+
+            <canvas id="phosphorusTrendChart"></canvas>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     POTASSIUM ANALYTICAL
+     ========================================================= -->
+
+<div class="analytical-chart-card">
+
+    <div class="analytical-chart-header">
+
+        <div>
+
+            <h3>
+                Potassium Analysis
+            </h3>
+
+            <p>
+                Potassium concentration over time.
+            </p>
+
+        </div>
+
+        <span class="analytical-unit">
+            mg/kg
+        </span>
+
+    </div>
+
+
+    <div class="analytical-chart-wrapper">
+
+        <canvas id="potassiumTrendChart"></canvas>
+
+    </div>
+
+</div>
+
+
 </div>
 
 
 <script>
 
-const ctx = document
-    .getElementById('moistureTrendChart')
-    .getContext('2d');
+/*
+|--------------------------------------------------------------------------
+| INITIAL ANALYTICAL DATA
+|--------------------------------------------------------------------------
+*/
+
+const initialChartLabels =
+    <?= json_encode(
+        $chart_labels,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
 
-const moistureChart = new Chart(ctx, {
+const initialMoistureData =
+    <?= json_encode(
+        $moisture_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-    type: 'line',
 
-    data: {
+const initialPhData =
+    <?= json_encode(
+        $ph_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-        labels: <?= json_encode($chart_labels) ?>,
 
-        datasets: [{
+const initialTemperatureData =
+    <?= json_encode(
+        $temperature_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-            label: 'Moisture Level (%)',
 
-            data: <?= json_encode($chart_data) ?>,
+const initialNitrogenData =
+    <?= json_encode(
+        $nitrogen_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-            borderColor: '#0b8a47',
 
-            backgroundColor: 'rgba(11, 138, 71, 0.05)',
+const initialPhosphorusData =
+    <?= json_encode(
+        $phosphorus_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-            borderWidth: 2,
 
-            fill: true,
+const initialPotassiumData =
+    <?= json_encode(
+        $potassium_data,
+        JSON_UNESCAPED_SLASHES
+    ) ?>;
 
-            tension: 0.3
 
-        }]
+/*
+|--------------------------------------------------------------------------
+| CHART HELPER
+|--------------------------------------------------------------------------
+*/
 
-    },
+function createAnalyticalChart(
+    canvasId,
+    label,
+    labels,
+    data,
+    yTitle,
+    minValue = undefined,
+    maxValue = undefined
+) {
 
-    options: {
+    const canvas =
+        document.getElementById(canvasId);
 
-        responsive: true,
+    if (!canvas) {
+        return null;
+    }
 
-        maintainAspectRatio: false,
+    const ctx =
+        canvas.getContext('2d');
 
-        animation: false,
 
-        plugins: {
+    const config = {
 
-            legend: {
-                display: false
-            }
+        type: 'line',
+
+        data: {
+
+            labels: labels,
+
+            datasets: [{
+
+                label: label,
+
+                data: data,
+
+                borderColor: '#0b8a47',
+
+                backgroundColor:
+                    'rgba(11, 138, 71, 0.05)',
+
+                borderWidth: 2,
+
+                pointRadius: 3,
+
+                pointHoverRadius: 5,
+
+                fill: true,
+
+                tension: 0.3,
+
+                spanGaps: true
+
+            }]
 
         },
 
-        scales: {
+        options: {
 
-            y: {
+            responsive: true,
 
-                min: 0,
+            maintainAspectRatio: false,
 
-                max: 100,
+            animation: false,
 
-                grid: {
-                    color: '#e2e8e2'
+            interaction: {
+
+                intersect: false,
+
+                mode: 'index'
+
+            },
+
+            plugins: {
+
+                legend: {
+
+                    display: false
+
                 },
 
-                ticks: {
+                tooltip: {
 
-                    callback: function(value) {
-                        return value + '%';
+                    callbacks: {
+
+                        label: function(context) {
+
+                            let value =
+                                context.parsed.y;
+
+                            if (
+                                value === null ||
+                                value === undefined
+                            ) {
+                                return label + ': --';
+                            }
+
+                            return label +
+                                ': ' +
+                                value;
+                        }
+
                     }
 
                 }
 
             },
 
-            x: {
+            scales: {
 
-                grid: {
-                    display: false
+                y: {
+
+                    min: minValue,
+
+                    max: maxValue,
+
+                    title: {
+
+                        display: true,
+
+                        text: yTitle
+
+                    },
+
+                    grid: {
+
+                        color: '#e2e8e2'
+
+                    }
+
+                },
+
+                x: {
+
+                    grid: {
+
+                        display: false
+
+                    },
+
+                    ticks: {
+
+                        maxRotation: 45,
+
+                        minRotation: 0
+
+                    }
+
                 }
 
             }
 
         }
 
-    }
+    };
 
-});
+
+    return new Chart(
+        ctx,
+        config
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CREATE ANALYTICAL CHARTS
+|--------------------------------------------------------------------------
+*/
+
+const moistureChart =
+    createAnalyticalChart(
+        'moistureTrendChart',
+        'Moisture',
+        initialChartLabels,
+        initialMoistureData,
+        'Moisture (%)',
+        0,
+        100
+    );
+
+
+const phChart =
+    createAnalyticalChart(
+        'phTrendChart',
+        'pH',
+        initialChartLabels,
+        initialPhData,
+        'pH Level',
+        0,
+        14
+    );
+
+
+const temperatureChart =
+    createAnalyticalChart(
+        'temperatureTrendChart',
+        'Temperature',
+        initialChartLabels,
+        initialTemperatureData,
+        'Temperature (°C)'
+    );
+
+
+const nitrogenChart =
+    createAnalyticalChart(
+        'nitrogenTrendChart',
+        'Nitrogen',
+        initialChartLabels,
+        initialNitrogenData,
+        'Nitrogen (mg/kg)'
+    );
+
+
+const phosphorusChart =
+    createAnalyticalChart(
+        'phosphorusTrendChart',
+        'Phosphorus',
+        initialChartLabels,
+        initialPhosphorusData,
+        'Phosphorus (mg/kg)'
+    );
+
+
+const potassiumChart =
+    createAnalyticalChart(
+        'potassiumTrendChart',
+        'Potassium',
+        initialChartLabels,
+        initialPotassiumData,
+        'Potassium (mg/kg)'
+    );
 
 
 /*
 |--------------------------------------------------------------------------
 | REAL-TIME TELEMETRY
 |--------------------------------------------------------------------------
-|
-| The API itself enforces the logged-in user's assigned node.
-| This page does NOT send user_id or device_id.
-|
 */
 
 (function() {
 
-    let lastHomeId = <?= $latest['id'] ?? 0 ?>;
+    let lastHomeId =
+        <?= $latest['id'] ?? 0 ?>;
 
 
     function updateHomeTelemetry() {
@@ -640,6 +1181,7 @@ const moistureChart = new Chart(ctx, {
         .then(res => {
 
             if (!res.ok) {
+
                 throw new Error(
                     'HTTP ' + res.status
                 );
@@ -662,6 +1204,12 @@ const moistureChart = new Chart(ctx, {
 
             const d = res.data;
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | CURRENT VALUE ELEMENTS
+            |--------------------------------------------------------------------------
+            */
 
             const mEl =
                 document.getElementById(
@@ -704,6 +1252,12 @@ const moistureChart = new Chart(ctx, {
                 );
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | MOISTURE
+            |--------------------------------------------------------------------------
+            */
+
             if (
                 mEl &&
                 d.moisture !== null &&
@@ -711,10 +1265,17 @@ const moistureChart = new Chart(ctx, {
             ) {
 
                 mEl.textContent =
-                    parseFloat(d.moisture)
-                    .toFixed(1) + '%';
+                    parseFloat(
+                        d.moisture
+                    ).toFixed(1) + '%';
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | PH
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 phEl &&
@@ -723,10 +1284,17 @@ const moistureChart = new Chart(ctx, {
             ) {
 
                 phEl.textContent =
-                    parseFloat(d.ph)
-                    .toFixed(1);
+                    parseFloat(
+                        d.ph
+                    ).toFixed(1);
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | TEMPERATURE
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 tEl &&
@@ -735,10 +1303,17 @@ const moistureChart = new Chart(ctx, {
             ) {
 
                 tEl.textContent =
-                    parseFloat(d.temperature)
-                    .toFixed(1) + '°C';
+                    parseFloat(
+                        d.temperature
+                    ).toFixed(1) + '°C';
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | NPK
+            |--------------------------------------------------------------------------
+            */
 
             if (npkEl) {
 
@@ -752,7 +1327,14 @@ const moistureChart = new Chart(ctx, {
             }
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | SOIL STATUS
+            |--------------------------------------------------------------------------
+            */
+
             let status = "OPTIMAL";
+
             let isWarning = false;
 
 
@@ -776,13 +1358,15 @@ const moistureChart = new Chart(ctx, {
             ) {
 
                 status = "WARNING";
+
                 isWarning = true;
             }
 
 
             if (badgeEl) {
 
-                badgeEl.textContent = status;
+                badgeEl.textContent =
+                    status;
 
                 badgeEl.className =
                     'status-pill ' +
@@ -797,7 +1381,9 @@ const moistureChart = new Chart(ctx, {
 
 
             if (titleEl) {
-                titleEl.textContent = status;
+
+                titleEl.textContent =
+                    status;
             }
 
 
@@ -821,24 +1407,138 @@ const moistureChart = new Chart(ctx, {
             }
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | ADD NEW DATA TO ALL ANALYTICAL CHARTS
+            |--------------------------------------------------------------------------
+            */
+
             if (
                 d.id &&
-                d.id !== lastHomeId &&
-                d.chart_labels &&
-                d.chart_data
+                d.id !== lastHomeId
             ) {
 
                 lastHomeId = d.id;
 
-                moistureChart.data.labels =
-                    d.chart_labels;
 
-                moistureChart
-                    .data
-                    .datasets[0]
-                    .data = d.chart_data;
+                let newLabel =
+                    d.formatted_time ||
+                    new Date().toLocaleTimeString(
+                        'en-PH',
+                        {
+                            hour: 'numeric',
+                            minute: '2-digit'
+                        }
+                    );
 
-                moistureChart.update('none');
+
+                /*
+                |--------------------------------------------------------------------------
+                | LIMIT CHART HISTORY
+                |--------------------------------------------------------------------------
+                */
+
+                const maxPoints = 20;
+
+
+                function appendChartPoint(
+                    chart,
+                    value
+                ) {
+
+                    if (!chart) {
+                        return;
+                    }
+
+
+                    chart.data.labels.push(
+                        newLabel
+                    );
+
+
+                    if (
+                        value === null ||
+                        value === undefined ||
+                        value === ''
+                    ) {
+
+                        chart
+                            .data
+                            .datasets[0]
+                            .data
+                            .push(null);
+
+                    } else {
+
+                        chart
+                            .data
+                            .datasets[0]
+                            .data
+                            .push(
+                                parseFloat(value)
+                            );
+                    }
+
+
+                    while (
+                        chart.data.labels.length >
+                        maxPoints
+                    ) {
+
+                        chart.data.labels.shift();
+
+                        chart
+                            .data
+                            .datasets[0]
+                            .data
+                            .shift();
+                    }
+
+
+                    chart.update('none');
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | UPDATE ALL ANALYTICAL CHARTS
+                |--------------------------------------------------------------------------
+                */
+
+                appendChartPoint(
+                    moistureChart,
+                    d.moisture
+                );
+
+
+                appendChartPoint(
+                    phChart,
+                    d.ph
+                );
+
+
+                appendChartPoint(
+                    temperatureChart,
+                    d.temperature
+                );
+
+
+                appendChartPoint(
+                    nitrogenChart,
+                    d.nitrogen
+                );
+
+
+                appendChartPoint(
+                    phosphorusChart,
+                    d.phosphorus
+                );
+
+
+                appendChartPoint(
+                    potassiumChart,
+                    d.potassium
+                );
             }
 
         })
@@ -851,9 +1551,14 @@ const moistureChart = new Chart(ctx, {
             );
 
         });
-
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | REFRESH EVERY 2 SECONDS
+    |--------------------------------------------------------------------------
+    */
 
     setInterval(
         updateHomeTelemetry,
@@ -863,3 +1568,298 @@ const moistureChart = new Chart(ctx, {
 })();
 
 </script>
+
+
+<style>
+
+/*
+|--------------------------------------------------------------------------
+| ANALYTICAL SECTION
+|--------------------------------------------------------------------------
+*/
+
+.analytical-section-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 20px;
+
+    margin-top: 5px;
+
+    margin-bottom: 15px;
+
+    padding: 5px 2px;
+}
+
+
+.analytical-section-header h3 {
+
+    margin: 0 0 4px 0;
+
+    font-size: 20px;
+
+    font-weight: 700;
+
+    color: #111111;
+}
+
+
+.analytical-section-header p {
+
+    margin: 0;
+
+    font-size: 13px;
+
+    color: #666666;
+}
+
+
+.analytical-live-indicator {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 7px 11px;
+
+    border-radius: 20px;
+
+    background: #e8f5e9;
+
+    color: #2e7d32;
+
+    font-size: 10px;
+
+    font-weight: 700;
+
+    letter-spacing: 0.4px;
+
+    white-space: nowrap;
+}
+
+
+.analytical-live-dot {
+
+    width: 7px;
+
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: #2e7d32;
+
+    animation: analyticalPulse 1.8s infinite;
+}
+
+
+@keyframes analyticalPulse {
+
+    0% {
+        box-shadow:
+            0 0 0 0
+            rgba(46, 125, 50, 0.5);
+    }
+
+    70% {
+        box-shadow:
+            0 0 0 6px
+            rgba(46, 125, 50, 0);
+    }
+
+    100% {
+        box-shadow:
+            0 0 0 0
+            rgba(46, 125, 50, 0);
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CHART GRID
+|--------------------------------------------------------------------------
+*/
+
+.analytical-chart-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 15px;
+
+    width: 100%;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ANALYTICAL CARD
+|--------------------------------------------------------------------------
+*/
+
+.analytical-chart-card {
+
+    background: #ffffff;
+
+    border-radius: 20px;
+
+    padding: 25px;
+
+    box-shadow:
+        0 4px 12px
+        rgba(0, 0, 0, 0.04);
+
+    border: 1px solid #e1e7e1;
+
+    min-width: 0;
+
+    margin-bottom: 15px;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CHART HEADER
+|--------------------------------------------------------------------------
+*/
+
+.analytical-chart-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    gap: 15px;
+
+    margin-bottom: 15px;
+}
+
+
+.analytical-chart-header h3 {
+
+    margin: 0 0 4px 0;
+
+    font-size: 16px;
+
+    font-weight: 700;
+
+    color: #111111;
+}
+
+
+.analytical-chart-header p {
+
+    margin: 0;
+
+    font-size: 12px;
+
+    color: #777777;
+}
+
+
+.analytical-unit {
+
+    padding: 5px 9px;
+
+    border-radius: 8px;
+
+    background: #e8f5e9;
+
+    color: #2e7d32;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CHART WRAPPER
+|--------------------------------------------------------------------------
+*/
+
+.analytical-chart-wrapper {
+
+    position: relative;
+
+    width: 100%;
+
+    height: 280px;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CANVAS
+|--------------------------------------------------------------------------
+*/
+
+.analytical-chart-wrapper canvas {
+
+    width: 100% !important;
+
+    height: 100% !important;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| MOBILE
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 992px) {
+
+    .analytical-chart-grid {
+
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 768px) {
+
+    .analytical-section-header {
+
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+
+    .analytical-live-indicator {
+
+        align-self: flex-start;
+    }
+
+
+    .analytical-chart-card {
+
+        padding: 20px;
+
+        border-radius: 16px;
+    }
+
+
+    .analytical-chart-wrapper {
+
+        height: 240px;
+    }
+
+}
+
+</style>

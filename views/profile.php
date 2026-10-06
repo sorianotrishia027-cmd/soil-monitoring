@@ -1,308 +1,553 @@
 <?php
+// ============================================================
+// PROFILE VIEW
+// Compatible with dashboard.php + css/style.css
+// Supports both ADMIN and FARMER
+// Official contact field: users.contact_number
+// CSRF PROTECTED
+// ============================================================
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include "../config/db_connect.php";
+require_once __DIR__ . '/../config/db_connect.php';
 
+// ============================================================
+// AUTHENTICATION
+// ============================================================
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit;
 }
 
 $user_id = intval($_SESSION['user_id']);
-$role = strtolower(trim($_SESSION['role'] ?? ''));
 
-if ($role !== 'admin') {
-    http_response_code(403);
-    exit("Access denied.");
+if ($user_id <= 0) {
+    header("Location: ../login.php");
+    exit;
 }
 
-$message = "";
-$message_type = "";
-
-function cleanInput($value) {
-    return trim($value ?? '');
+// ============================================================
+// CSRF TOKEN
+// ============================================================
+if (
+    !isset($_SESSION['profile_csrf_token']) ||
+    !is_string($_SESSION['profile_csrf_token']) ||
+    strlen($_SESSION['profile_csrf_token']) < 32
+) {
+    $_SESSION['profile_csrf_token'] = bin2hex(random_bytes(32));
 }
 
-function normalizeContact($number) {
-    $number = preg_replace('/[\s\-\(\)]/', '', trim($number));
+$csrf_token = $_SESSION['profile_csrf_token'];
 
-    if ($number === '') {
+// ============================================================
+// HELPER: NORMALIZE PHILIPPINE CONTACT NUMBER
+// ============================================================
+function normalizeContact($value)
+{
+    $value = trim((string)$value);
+
+    if ($value === '') {
         return '';
     }
 
-    if (strpos($number, '+63') === 0) {
-        return $number;
+    // Remove spaces, dashes, parentheses, etc.
+    $value = preg_replace('/[^0-9+]/', '', $value);
+
+    // +639XXXXXXXXX -> 09XXXXXXXXX
+    if (strpos($value, '+63') === 0) {
+        $value = '0' . substr($value, 3);
     }
 
-    if (strpos($number, '63') === 0 && strlen($number) === 12) {
-        return '+' . $number;
+    // 639XXXXXXXXX -> 09XXXXXXXXX
+    elseif (strpos($value, '63') === 0 && strlen($value) === 12) {
+        $value = '0' . substr($value, 2);
     }
 
-    if (strpos($number, '09') === 0 && strlen($number) === 11) {
-        return '+63' . substr($number, 1);
-    }
-
-    return $number;
+    return $value;
 }
 
-/*
-|--------------------------------------------------------------------------
-| GET CURRENT ADMIN INFORMATION
-|--------------------------------------------------------------------------
-*/
-
+// ============================================================
+// LOAD CURRENT USER
+// ============================================================
 $stmt = $conn->prepare("
-    SELECT id, username, email, fullname, role, contact_number
+    SELECT
+        id,
+        username,
+        email,
+        fullname,
+        role,
+        contact_number
     FROM users
     WHERE id = ?
     LIMIT 1
 ");
 
-$stmt->execute([$user_id]);
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$stmt) {
+    die("Database error.");
+}
 
-if (!$admin) {
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+
+$stmt->close();
+
+if (!$user) {
+    session_unset();
     session_destroy();
+
     header("Location: ../login.php");
     exit;
 }
 
-/*
-|--------------------------------------------------------------------------
-| UPDATE PROFILE
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ROLE
+// ============================================================
+$role = strtolower(trim($user['role'] ?? ''));
 
+if ($role !== 'admin' && $role !== 'farmer') {
+    http_response_code(403);
+    exit("Access denied.");
+}
+
+// Keep session role synchronized with database.
+$_SESSION['role'] = $role;
+
+// ============================================================
+// PAGE INFORMATION
+// ============================================================
+if ($role === 'admin') {
+    $page_title = "Admin Profile";
+    $page_description = "Manage your administrator account information and password.";
+} else {
+    $page_title = "My Profile";
+    $page_description = "Manage your farmer account information and password.";
+}
+
+// ============================================================
+// FORM VALUES
+// ============================================================
+$username = $user['username'] ?? '';
+$email = $user['email'] ?? '';
+$fullname = $user['fullname'] ?? '';
+$contact_number = $user['contact_number'] ?? '';
+
+// ============================================================
+// MESSAGES
+// ============================================================
+$success_message = '';
+$error_message = '';
+
+// ============================================================
+// HANDLE POST REQUESTS
+// ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $action = $_POST['action'] ?? '';
+    // ========================================================
+    // CSRF VALIDATION
+    // ========================================================
+    $submitted_csrf = $_POST['csrf_token'] ?? '';
 
-    if ($action === 'update_profile') {
+    if (
+        !is_string($submitted_csrf) ||
+        !isset($_SESSION['profile_csrf_token']) ||
+        !is_string($_SESSION['profile_csrf_token']) ||
+        !hash_equals(
+            $_SESSION['profile_csrf_token'],
+            $submitted_csrf
+        )
+    ) {
 
-        $username = cleanInput($_POST['username'] ?? '');
-        $email = cleanInput($_POST['email'] ?? '');
-        $fullname = cleanInput($_POST['fullname'] ?? '');
-        $contact_number = normalizeContact($_POST['contact_number'] ?? '');
+        $error_message =
+            "Security validation failed. Please refresh the page and try again.";
 
-        if ($username === '' || $email === '' || $fullname === '') {
+    } else {
 
-            $message = "Username, email, and full name are required.";
-            $message_type = "error";
+        // ====================================================
+        // UPDATE PROFILE
+        // ====================================================
+        if (isset($_POST['update_profile'])) {
 
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $new_username = trim($_POST['username'] ?? '');
+            $new_email = trim($_POST['email'] ?? '');
+            $new_fullname = trim($_POST['fullname'] ?? '');
+            $new_contact = normalizeContact(
+                $_POST['contact_number'] ?? ''
+            );
 
-            $message = "Please enter a valid email address.";
-            $message_type = "error";
+            // ------------------------------------------------
+            // BASIC VALIDATION
+            // ------------------------------------------------
+            if (
+                $new_username === '' ||
+                $new_email === '' ||
+                $new_fullname === ''
+            ) {
 
-        } else {
+                $error_message =
+                    "Username, email, and full name are required.";
 
-            /*
-            |--------------------------------------------------------------------------
-            | CHECK DUPLICATE USERNAME
-            |--------------------------------------------------------------------------
-            */
+            } elseif (!filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
 
-            $stmt = $conn->prepare("
-                SELECT id
-                FROM users
-                WHERE username = ?
-                AND id != ?
-                LIMIT 1
-            ");
+                $error_message =
+                    "Please enter a valid email address.";
 
-            $stmt->execute([$username, $user_id]);
+            } elseif (
+                $new_contact !== '' &&
+                !preg_match('/^09[0-9]{9}$/', $new_contact)
+            ) {
 
-            if ($stmt->fetch()) {
-
-                $message = "The username is already being used by another account.";
-                $message_type = "error";
+                $error_message =
+                    "Please enter a valid Philippine mobile number.";
 
             } else {
 
-                /*
-                |--------------------------------------------------------------------------
-                | CHECK DUPLICATE EMAIL
-                |--------------------------------------------------------------------------
-                */
+                // --------------------------------------------
+                // CHECK DUPLICATE USERNAME
+                // --------------------------------------------
+                $duplicate_username = false;
 
                 $stmt = $conn->prepare("
                     SELECT id
                     FROM users
-                    WHERE LOWER(email) = LOWER(?)
-                    AND id != ?
+                    WHERE username = ?
+                      AND id != ?
                     LIMIT 1
                 ");
 
-                $stmt->execute([$email, $user_id]);
+                if ($stmt) {
 
-                if ($stmt->fetch()) {
+                    $stmt->bind_param(
+                        "si",
+                        $new_username,
+                        $user_id
+                    );
 
-                    $message = "The email address is already being used by another account.";
-                    $message_type = "error";
+                    $stmt->execute();
+
+                    $duplicate_username =
+                        $stmt->get_result()->num_rows > 0;
+
+                    $stmt->close();
+                }
+
+                if ($duplicate_username) {
+
+                    $error_message =
+                        "Username is already being used by another account.";
 
                 } else {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CHECK DUPLICATE CONTACT NUMBER
-                    |--------------------------------------------------------------------------
-                    */
+                    // ----------------------------------------
+                    // CHECK DUPLICATE EMAIL
+                    // ----------------------------------------
+                    $duplicate_email = false;
 
-                    if ($contact_number !== '') {
+                    $stmt = $conn->prepare("
+                        SELECT id
+                        FROM users
+                        WHERE email = ?
+                          AND id != ?
+                        LIMIT 1
+                    ");
 
-                        $stmt = $conn->prepare("
-                            SELECT id
-                            FROM users
-                            WHERE contact_number = ?
-                            AND id != ?
-                            LIMIT 1
-                        ");
+                    if ($stmt) {
 
-                        $stmt->execute([$contact_number, $user_id]);
+                        $stmt->bind_param(
+                            "si",
+                            $new_email,
+                            $user_id
+                        );
 
-                        if ($stmt->fetch()) {
+                        $stmt->execute();
 
-                            $message = "The contact number is already being used by another account.";
-                            $message_type = "error";
+                        $duplicate_email =
+                            $stmt->get_result()->num_rows > 0;
 
-                        } else {
+                        $stmt->close();
+                    }
 
-                            $stmt = $conn->prepare("
-                                UPDATE users
-                                SET username = ?,
-                                    email = ?,
-                                    fullname = ?,
-                                    contact_number = ?
-                                WHERE id = ?
-                            ");
+                    if ($duplicate_email) {
 
-                            $stmt->execute([
-                                $username,
-                                $email,
-                                $fullname,
-                                $contact_number,
-                                $user_id
-                            ]);
-
-                            $message = "Your profile has been updated successfully.";
-                            $message_type = "success";
-
-                            $admin['username'] = $username;
-                            $admin['email'] = $email;
-                            $admin['fullname'] = $fullname;
-                            $admin['contact_number'] = $contact_number;
-
-                            $_SESSION['username'] = $username;
-                            $_SESSION['email'] = $email;
-                            $_SESSION['fullname'] = $fullname;
-                        }
+                        $error_message =
+                            "Email address is already being used by another account.";
 
                     } else {
 
-                        $stmt = $conn->prepare("
-                            UPDATE users
-                            SET username = ?,
-                                email = ?,
-                                fullname = ?,
-                                contact_number = NULL
-                            WHERE id = ?
-                        ");
+                        // ------------------------------------
+                        // CHECK DUPLICATE CONTACT NUMBER
+                        // ------------------------------------
+                        $duplicate_contact = false;
 
-                        $stmt->execute([
-                            $username,
-                            $email,
-                            $fullname,
-                            $user_id
-                        ]);
+                        if ($new_contact !== '') {
 
-                        $message = "Your profile has been updated successfully.";
-                        $message_type = "success";
+                            $stmt = $conn->prepare("
+                                SELECT id
+                                FROM users
+                                WHERE contact_number = ?
+                                  AND id != ?
+                                LIMIT 1
+                            ");
 
-                        $admin['username'] = $username;
-                        $admin['email'] = $email;
-                        $admin['fullname'] = $fullname;
-                        $admin['contact_number'] = '';
+                            if ($stmt) {
 
-                        $_SESSION['username'] = $username;
-                        $_SESSION['email'] = $email;
-                        $_SESSION['fullname'] = $fullname;
+                                $stmt->bind_param(
+                                    "si",
+                                    $new_contact,
+                                    $user_id
+                                );
+
+                                $stmt->execute();
+
+                                $duplicate_contact =
+                                    $stmt->get_result()->num_rows > 0;
+
+                                $stmt->close();
+                            }
+                        }
+
+                        if ($duplicate_contact) {
+
+                            $error_message =
+                                "Contact number is already registered to another account.";
+
+                        } else {
+
+                            // --------------------------------
+                            // UPDATE PROFILE
+                            // --------------------------------
+                            if ($new_contact === '') {
+
+                                $stmt = $conn->prepare("
+                                    UPDATE users
+                                    SET
+                                        username = ?,
+                                        email = ?,
+                                        fullname = ?,
+                                        contact_number = NULL
+                                    WHERE id = ?
+                                ");
+
+                                if ($stmt) {
+
+                                    $stmt->bind_param(
+                                        "sssi",
+                                        $new_username,
+                                        $new_email,
+                                        $new_fullname,
+                                        $user_id
+                                    );
+                                }
+
+                            } else {
+
+                                $stmt = $conn->prepare("
+                                    UPDATE users
+                                    SET
+                                        username = ?,
+                                        email = ?,
+                                        fullname = ?,
+                                        contact_number = ?
+                                    WHERE id = ?
+                                ");
+
+                                if ($stmt) {
+
+                                    $stmt->bind_param(
+                                        "ssssi",
+                                        $new_username,
+                                        $new_email,
+                                        $new_fullname,
+                                        $new_contact,
+                                        $user_id
+                                    );
+                                }
+                            }
+
+                            if (!$stmt) {
+
+                                $error_message =
+                                    "Unable to prepare profile update.";
+
+                            } elseif ($stmt->execute()) {
+
+                                $success_message =
+                                    "Profile information updated successfully.";
+
+                                // Update local values.
+                                $username = $new_username;
+                                $email = $new_email;
+                                $fullname = $new_fullname;
+                                $contact_number = $new_contact;
+
+                                // Update session values.
+                                $_SESSION['username'] = $new_username;
+                                $_SESSION['email'] = $new_email;
+                                $_SESSION['fullname'] = $new_fullname;
+
+                                // --------------------------------
+                                // REGENERATE CSRF TOKEN
+                                // --------------------------------
+                                $_SESSION['profile_csrf_token'] =
+                                    bin2hex(random_bytes(32));
+
+                                $csrf_token =
+                                    $_SESSION['profile_csrf_token'];
+
+                            } else {
+
+                                $error_message =
+                                    "Unable to update your profile. Please try again.";
+                            }
+
+                            if ($stmt) {
+                                $stmt->close();
+                            }
+                        }
                     }
                 }
             }
         }
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CHANGE PASSWORD
-    |--------------------------------------------------------------------------
-    */
+        // ====================================================
+        // CHANGE PASSWORD
+        // ====================================================
+        elseif (isset($_POST['change_password'])) {
 
-    if ($action === 'change_password') {
+            $current_password =
+                $_POST['current_password'] ?? '';
 
-        $current_password = $_POST['current_password'] ?? '';
-        $new_password = $_POST['new_password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
+            $new_password =
+                $_POST['new_password'] ?? '';
 
-        if ($current_password === '' || $new_password === '' || $confirm_password === '') {
+            $confirm_password =
+                $_POST['confirm_password'] ?? '';
 
-            $message = "All password fields are required.";
-            $message_type = "error";
+            // ------------------------------------------------
+            // VALIDATION
+            // ------------------------------------------------
+            if (
+                $current_password === '' ||
+                $new_password === '' ||
+                $confirm_password === ''
+            ) {
 
-        } elseif (strlen($new_password) < 8) {
+                $error_message =
+                    "Please complete all password fields.";
 
-            $message = "The new password must contain at least 8 characters.";
-            $message_type = "error";
+            } elseif ($new_password !== $confirm_password) {
 
-        } elseif ($new_password !== $confirm_password) {
+                $error_message =
+                    "New password and confirmation password do not match.";
 
-            $message = "The new passwords do not match.";
-            $message_type = "error";
+            } elseif (strlen($new_password) < 8) {
 
-        } else {
-
-            $stmt = $conn->prepare("
-                SELECT password
-                FROM users
-                WHERE id = ?
-                LIMIT 1
-            ");
-
-            $stmt->execute([$user_id]);
-            $account = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$account) {
-
-                $message = "Account could not be found.";
-                $message_type = "error";
-
-            } elseif (!password_verify($current_password, $account['password'])) {
-
-                $message = "The current password is incorrect.";
-                $message_type = "error";
+                $error_message =
+                    "New password must be at least 8 characters long.";
 
             } else {
 
-                $new_password_hash = password_hash(
-                    $new_password,
-                    PASSWORD_BCRYPT
-                );
-
+                // --------------------------------------------
+                // GET CURRENT PASSWORD HASH
+                // --------------------------------------------
                 $stmt = $conn->prepare("
-                    UPDATE users
-                    SET password = ?
+                    SELECT password
+                    FROM users
                     WHERE id = ?
+                    LIMIT 1
                 ");
 
-                $stmt->execute([
-                    $new_password_hash,
-                    $user_id
-                ]);
+                if (!$stmt) {
 
-                $message = "Your password has been changed successfully.";
-                $message_type = "success";
+                    $error_message =
+                        "Unable to verify your current password.";
+
+                } else {
+
+                    $stmt->bind_param("i", $user_id);
+                    $stmt->execute();
+
+                    $password_result =
+                        $stmt->get_result();
+
+                    $password_user =
+                        $password_result->fetch_assoc();
+
+                    $stmt->close();
+
+                    if (!$password_user) {
+
+                        $error_message =
+                            "User account could not be found.";
+
+                    } elseif (
+                        !password_verify(
+                            $current_password,
+                            $password_user['password']
+                        )
+                    ) {
+
+                        $error_message =
+                            "Current password is incorrect.";
+
+                    } else {
+
+                        // ------------------------------------
+                        // HASH NEW PASSWORD
+                        // ------------------------------------
+                        $new_password_hash =
+                            password_hash(
+                                $new_password,
+                                PASSWORD_BCRYPT
+                            );
+
+                        $stmt = $conn->prepare("
+                            UPDATE users
+                            SET password = ?
+                            WHERE id = ?
+                        ");
+
+                        if (!$stmt) {
+
+                            $error_message =
+                                "Unable to prepare password update.";
+
+                        } else {
+
+                            $stmt->bind_param(
+                                "si",
+                                $new_password_hash,
+                                $user_id
+                            );
+
+                            if ($stmt->execute()) {
+
+                                $success_message =
+                                    "Password changed successfully.";
+
+                                // --------------------------------
+                                // REGENERATE CSRF TOKEN
+                                // --------------------------------
+                                $_SESSION['profile_csrf_token'] =
+                                    bin2hex(random_bytes(32));
+
+                                $csrf_token =
+                                    $_SESSION['profile_csrf_token'];
+
+                            } else {
+
+                                $error_message =
+                                    "Unable to change your password. Please try again.";
+                            }
+
+                            $stmt->close();
+                        }
+                    }
+                }
             }
         }
     }
@@ -310,487 +555,786 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 ?>
 
-<div class="admin-profile-page">
+<div class="sub-view-panel-container profile-view-container">
 
-<div class="profile-header">
-    <div>
-        <h2>Admin Profile</h2>
-        <p>Manage your administrator account information and password.</p>
+    <!-- =====================================================
+         PROFILE HEADER
+         ===================================================== -->
+    <div class="view-panel-header">
+
+        <h3>
+            <?php echo htmlspecialchars(
+                $page_title,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>
+        </h3>
+
+        <p>
+            <?php echo htmlspecialchars(
+                $page_description,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>
+        </p>
+
     </div>
-</div>
-
-<?php if ($message !== ""): ?>
-
-    <div class="profile-message <?php echo htmlspecialchars($message_type); ?>">
-        <?php echo htmlspecialchars($message); ?>
-    </div>
-
-<?php endif; ?>
 
 
-<div class="profile-grid">
+    <!-- =====================================================
+         SUCCESS MESSAGE
+         ===================================================== -->
+    <?php if ($success_message !== ''): ?>
 
-    <!-- PROFILE INFORMATION -->
-
-    <div class="profile-card">
-
-        <div class="card-header">
-            <h3>Profile Information</h3>
-            <p>Update your administrator account information.</p>
+        <div class="alert success">
+            <?php echo htmlspecialchars(
+                $success_message,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>
         </div>
 
-        <form method="POST" autocomplete="off">
-
-            <input type="hidden" name="action" value="update_profile">
-
-            <div class="form-group">
-
-                <label for="fullname">Full Name</label>
-
-                <input
-                    type="text"
-                    id="fullname"
-                    name="fullname"
-                    value="<?php echo htmlspecialchars($admin['fullname'] ?? ''); ?>"
-                    required
-                >
-
-            </div>
+    <?php endif; ?>
 
 
-            <div class="form-group">
+    <!-- =====================================================
+         ERROR MESSAGE
+         ===================================================== -->
+    <?php if ($error_message !== ''): ?>
 
-                <label for="username">Username</label>
-
-                <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    value="<?php echo htmlspecialchars($admin['username'] ?? ''); ?>"
-                    required
-                >
-
-                <small>
-                    Username must be unique.
-                </small>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="email">Email Address</label>
-
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value="<?php echo htmlspecialchars($admin['email'] ?? ''); ?>"
-                    required
-                >
-
-                <small>
-                    Email address must be unique.
-                </small>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="contact_number">Contact Number</label>
-
-                <input
-                    type="text"
-                    id="contact_number"
-                    name="contact_number"
-                    value="<?php echo htmlspecialchars($admin['contact_number'] ?? ''); ?>"
-                    placeholder="09XXXXXXXXX"
-                >
-
-                <small>
-                    Contact number must be unique.
-                </small>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>Account Role</label>
-
-                <input
-                    type="text"
-                    value="Administrator"
-                    disabled
-                >
-
-            </div>
-
-
-            <button type="submit" class="save-btn">
-                Save Profile Changes
-            </button>
-
-        </form>
-
-    </div>
-
-
-    <!-- PASSWORD -->
-
-    <div class="profile-card">
-
-        <div class="card-header">
-            <h3>Change Password</h3>
-            <p>Update your administrator account password.</p>
+        <div class="alert danger">
+            <?php echo htmlspecialchars(
+                $error_message,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>
         </div>
 
-        <form method="POST" autocomplete="off">
+    <?php endif; ?>
 
-            <input type="hidden" name="action" value="change_password">
 
-            <div class="form-group">
+    <!-- =====================================================
+         PROFILE + PASSWORD GRID
+         ===================================================== -->
+    <div class="telemetry-detailed-grid profile-form-grid">
 
-                <label for="current_password">Current Password</label>
+        <!-- =================================================
+             ACCOUNT INFORMATION
+             ================================================= -->
+        <div class="data-metric-row-card profile-form-card">
 
-                <div class="password-wrapper">
+            <h4>Account Information</h4>
+
+            <form method="POST" action="">
+
+                <!-- CSRF TOKEN -->
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?php echo htmlspecialchars(
+                        $csrf_token,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ); ?>"
+                >
+
+                <!-- FULL NAME -->
+                <div class="profile-form-group">
+
+                    <label for="fullname">
+                        Full Name
+                    </label>
 
                     <input
-                        type="password"
-                        id="current_password"
-                        name="current_password"
+                        type="text"
+                        id="fullname"
+                        name="fullname"
+                        value="<?php echo htmlspecialchars(
+                            $fullname,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>"
                         required
-                        autocomplete="current-password"
                     >
-
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        onclick="togglePassword('current_password', this)"
-                        aria-label="Show password"
-                    >
-                        <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                    </button>
 
                 </div>
 
-            </div>
 
+                <!-- USERNAME -->
+                <div class="profile-form-group">
 
-            <div class="form-group">
-
-                <label for="new_password">New Password</label>
-
-                <div class="password-wrapper">
+                    <label for="username">
+                        Username
+                    </label>
 
                     <input
-                        type="password"
-                        id="new_password"
-                        name="new_password"
+                        type="text"
+                        id="username"
+                        name="username"
+                        value="<?php echo htmlspecialchars(
+                            $username,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>"
                         required
-                        minlength="8"
-                        autocomplete="new-password"
                     >
-
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        onclick="togglePassword('new_password', this)"
-                        aria-label="Show password"
-                    >
-                        <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                    </button>
 
                 </div>
 
-                <small>
-                    Password must contain at least 8 characters.
-                </small>
 
-            </div>
+                <!-- EMAIL -->
+                <div class="profile-form-group">
 
-
-            <div class="form-group">
-
-                <label for="confirm_password">Confirm New Password</label>
-
-                <div class="password-wrapper">
+                    <label for="email">
+                        Email Address
+                    </label>
 
                     <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="<?php echo htmlspecialchars(
+                            $email,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>"
                         required
-                        minlength="8"
-                        autocomplete="new-password"
                     >
-
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        onclick="togglePassword('confirm_password', this)"
-                        aria-label="Show password"
-                    >
-                        <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                    </button>
 
                 </div>
 
-            </div>
+
+                <!-- CONTACT NUMBER -->
+                <div class="profile-form-group">
+
+                    <label for="contact_number">
+                        Contact Number
+                    </label>
+
+                    <input
+                        type="text"
+                        id="contact_number"
+                        name="contact_number"
+                        value="<?php echo htmlspecialchars(
+                            $contact_number,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>"
+                        placeholder="09XXXXXXXXX"
+                        maxlength="11"
+                    >
+
+                    <small>
+                        This is the official contact number used
+                        by the system for your registered account.
+                    </small>
+
+                </div>
 
 
-            <button type="submit" class="password-btn">
-                Change Password
-            </button>
+                <!-- ROLE -->
+                <div class="profile-form-group">
 
-        </form>
+                    <label>
+                        Account Role
+                    </label>
+
+                    <div class="profile-readonly-value">
+                        <?php echo htmlspecialchars(
+                            ucfirst($role),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>
+                    </div>
+
+                </div>
+
+
+                <!-- SAVE PROFILE -->
+                <button
+                    type="submit"
+                    name="update_profile"
+                    class="profile-primary-btn"
+                >
+                    Save Profile Changes
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- =================================================
+             CHANGE PASSWORD
+             ================================================= -->
+        <div class="data-metric-row-card profile-form-card">
+
+            <h4>Change Password</h4>
+
+            <form method="POST" action="">
+
+                <!-- CSRF TOKEN -->
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?php echo htmlspecialchars(
+                        $csrf_token,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ); ?>"
+                >
+
+
+                <!-- CURRENT PASSWORD -->
+                <div class="profile-form-group">
+
+                    <label for="current_password">
+                        Current Password
+                    </label>
+
+                    <div class="password-input-wrapper">
+
+                        <input
+                            type="password"
+                            id="current_password"
+                            name="current_password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-eye-btn"
+                            onclick="togglePassword(
+                                'current_password',
+                                this
+                            )"
+                            aria-label="Show password"
+                            title="Show password"
+                        >
+
+                            <!-- CLOSED EYE -->
+                            <svg
+                                class="eye-icon eye-closed"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="2.7"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                />
+                            </svg>
+
+
+                            <!-- OPEN EYE / SLASH -->
+                            <svg
+                                class="eye-icon eye-open"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M3 3l18 18"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+
+                                <path
+                                    d="M10.6 6.2A10.5 10.5 0 0 1 12 6c6.5 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M6.1 9.1C3.7 10.5 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M9.8 9.8a3 3 0 0 0 4.4 4.4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- NEW PASSWORD -->
+                <div class="profile-form-group">
+
+                    <label for="new_password">
+                        New Password
+                    </label>
+
+                    <div class="password-input-wrapper">
+
+                        <input
+                            type="password"
+                            id="new_password"
+                            name="new_password"
+                            autocomplete="new-password"
+                            minlength="8"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-eye-btn"
+                            onclick="togglePassword(
+                                'new_password',
+                                this
+                            )"
+                            aria-label="Show password"
+                            title="Show password"
+                        >
+
+                            <!-- CLOSED EYE -->
+                            <svg
+                                class="eye-icon eye-closed"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="2.7"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                />
+                            </svg>
+
+
+                            <!-- OPEN EYE / SLASH -->
+                            <svg
+                                class="eye-icon eye-open"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M3 3l18 18"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+
+                                <path
+                                    d="M10.6 6.2A10.5 10.5 0 0 1 12 6c6.5 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M6.1 9.1C3.7 10.5 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M9.8 9.8a3 3 0 0 0 4.4 4.4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+
+                        </button>
+
+                    </div>
+
+                    <small>
+                        Password must contain at least 8 characters.
+                    </small>
+
+                </div>
+
+
+                <!-- CONFIRM PASSWORD -->
+                <div class="profile-form-group">
+
+                    <label for="confirm_password">
+                        Confirm New Password
+                    </label>
+
+                    <div class="password-input-wrapper">
+
+                        <input
+                            type="password"
+                            id="confirm_password"
+                            name="confirm_password"
+                            autocomplete="new-password"
+                            minlength="8"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-eye-btn"
+                            onclick="togglePassword(
+                                'confirm_password',
+                                this
+                            )"
+                            aria-label="Show password"
+                            title="Show password"
+                        >
+
+                            <!-- CLOSED EYE -->
+                            <svg
+                                class="eye-icon eye-closed"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="2.7"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                />
+                            </svg>
+
+
+                            <!-- OPEN EYE / SLASH -->
+                            <svg
+                                class="eye-icon eye-open"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M3 3l18 18"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+
+                                <path
+                                    d="M10.6 6.2A10.5 10.5 0 0 1 12 6c6.5 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M6.1 9.1C3.7 10.5 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+
+                                <path
+                                    d="M9.8 9.8a3 3 0 0 0 4.4 4.4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CHANGE PASSWORD -->
+                <button
+                    type="submit"
+                    name="change_password"
+                    class="profile-secondary-btn"
+                >
+                    Change Password
+                </button>
+
+            </form>
+
+        </div>
 
     </div>
 
 </div>
 
-</div>
 
-
+<!-- =========================================================
+     PROFILE-SPECIFIC STYLE
+     Uses SAME system colors and design language.
+     ========================================================= -->
 <style>
 
-.admin-profile-page {
+.profile-view-container {
     width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
 }
 
-.profile-header {
-    margin-bottom: 24px;
+.profile-form-grid {
+    align-items: start;
 }
 
-.profile-header h2 {
-    margin: 0 0 6px;
-    font-size: 28px;
-    font-weight: 700;
-}
-
-.profile-header p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-.profile-message {
-    width: 100%;
-    padding: 13px 16px;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    box-sizing: border-box;
-    font-size: 14px;
-}
-
-.profile-message.success {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    color: #047857;
-}
-
-.profile-message.error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
-}
-
-.profile-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px;
-}
-
-.profile-card {
+.profile-form-card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 24px;
-    box-sizing: border-box;
 }
 
-.card-header {
-    margin-bottom: 22px;
+.profile-form-card h4 {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    font-weight: 600;
 }
 
-.card-header h3 {
-    margin: 0 0 6px;
-    font-size: 20px;
-    font-weight: 700;
-}
-
-.card-header p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 13px;
-}
-
-.form-group {
+.profile-form-group {
     margin-bottom: 18px;
 }
 
-.form-group label {
+.profile-form-group label {
     display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333333;
     margin-bottom: 7px;
+}
+
+.profile-form-group input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #ccd4cc;
+    border-radius: 10px;
+    background: #f9f9f9;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.profile-form-group input:focus {
+    border-color: var(--primary-color);
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(11, 138, 71, 0.08);
+}
+
+.profile-form-group small {
+    display: block;
+    margin-top: 6px;
+    color: #777777;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.profile-readonly-value {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #e0e6e0;
+    border-radius: 10px;
+    background: #f9f9f9;
+    color: #555555;
     font-size: 14px;
     font-weight: 600;
 }
 
-.form-group input {
-    width: 100%;
-    height: 44px;
-    padding: 0 13px;
-    border: 1px solid #d1d5db;
-    border-radius: 7px;
-    background: #ffffff;
-    color: #111827;
-    font-size: 14px;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
+/* =========================================================
+   PASSWORD INPUT + EYE ICON
+   ========================================================= */
 
-.form-group input:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
-}
-
-.form-group input:disabled {
-    background: #f3f4f6;
-    color: #6b7280;
-    cursor: not-allowed;
-}
-
-.form-group small {
-    display: block;
-    margin-top: 6px;
-    color: #6b7280;
-    font-size: 12px;
-}
-
-.password-wrapper {
+.password-input-wrapper {
     position: relative;
     width: 100%;
 }
 
-.password-wrapper input {
+.password-input-wrapper input {
     padding-right: 48px;
 }
 
-.password-toggle {
+.password-eye-btn {
     position: absolute;
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: transparent;
-    color: #6b7280;
+
+    width: 34px;
+    height: 34px;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    padding: 0;
-}
 
-.password-toggle:hover {
-    color: #111827;
-}
-
-.save-btn,
-.password-btn {
-    width: 100%;
-    height: 44px;
     border: none;
-    border-radius: 7px;
-    font-size: 14px;
-    font-weight: 600;
+    background: transparent;
+
+    color: #666666;
+
+    padding: 0;
+    margin: 0;
+
     cursor: pointer;
-    transition: opacity 0.2s;
+
+    border-radius: 8px;
+
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease;
 }
 
-.save-btn {
-    background: #2563eb;
+.password-eye-btn:hover {
+    color: var(--primary-color);
+    background: #e8f5e9;
+}
+
+.password-eye-btn:focus {
+    outline: 2px solid rgba(11, 138, 71, 0.25);
+    outline-offset: 1px;
+}
+
+.eye-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+.eye-open {
+    display: none;
+}
+
+.password-eye-btn.showing .eye-closed {
+    display: none;
+}
+
+.password-eye-btn.showing .eye-open {
+    display: block;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.profile-primary-btn,
+.profile-secondary-btn {
+    width: 100%;
+    border-radius: 10px;
+    padding: 13px 16px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+
+    margin-top: 5px;
+}
+
+.profile-primary-btn {
+    border: none;
+    background: var(--primary-color);
     color: #ffffff;
+
+    box-shadow:
+        0 4px 10px rgba(11, 138, 71, 0.15);
 }
 
-.password-btn {
-    background: #111827;
-    color: #ffffff;
+.profile-primary-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
 }
 
-.save-btn:hover,
-.password-btn:hover {
-    opacity: 0.9;
+.profile-secondary-btn {
+    background: #f9f9f9;
+    color: var(--primary-color);
+    border: 1px solid #ccd4cc;
 }
 
-@media (max-width: 850px) {
+.profile-secondary-btn:hover {
+    background: #e8f5e9;
+    border-color: var(--primary-color);
+}
 
-    .profile-grid {
+.profile-form-card form {
+    width: 100%;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    .profile-form-grid {
         grid-template-columns: 1fr;
     }
 
-}
-
-@media (max-width: 500px) {
-
-    .admin-profile-page {
-        padding: 5px;
+    .profile-form-card {
+        padding: 20px;
     }
-
-    .profile-card {
-        padding: 18px;
-    }
-
-    .profile-header h2 {
-        font-size: 24px;
-    }
-
 }
 
 </style>
 
 
+<!-- =========================================================
+     PASSWORD SHOW / HIDE SCRIPT
+     ========================================================= -->
 <script>
 
 function togglePassword(inputId, button) {
@@ -804,13 +1348,34 @@ function togglePassword(inputId, button) {
     if (input.type === "password") {
 
         input.type = "text";
-        button.setAttribute("aria-label", "Hide password");
+
+        button.classList.add("showing");
+
+        button.setAttribute(
+            "aria-label",
+            "Hide password"
+        );
+
+        button.setAttribute(
+            "title",
+            "Hide password"
+        );
 
     } else {
 
         input.type = "password";
-        button.setAttribute("aria-label", "Show password");
 
+        button.classList.remove("showing");
+
+        button.setAttribute(
+            "aria-label",
+            "Show password"
+        );
+
+        button.setAttribute(
+            "title",
+            "Show password"
+        );
     }
 }
 

@@ -1,128 +1,224 @@
-
 #include <Arduino.h>
 #include <HardwareSerial.h>
 HardwareSerial GSM(1);
 #define GSM_RX 26
 #define GSM_TX 27
-const long baudRates[] = {
-  115200,
-  57600,
-  38400,
-  19200,
-  9600,
-  4800,
-  2400
-};
-void flushGSM() {
+const long GSM_BAUD = 115200;
+const char* SERVER_HOST = "soil-monitoring-production.up.railway.app";
+const int SERVER_PORT = 80;
+const char* SERVER_PATH = "/api/store_data.php";
+const char* API_KEY = "SCC_AGRI_SECRET_KEY_2026";
+const char* DEVICE_ID = "ESP32_GSM_01";
+String sendAT(String command, unsigned long timeout = 5000) {
   while (GSM.available()) {
     GSM.read();
   }
-}
-bool testBaud(long baud) {
   Serial.println();
-  Serial.println("========================================");
-  Serial.print("TESTING BAUD: ");
-  Serial.println(baud);
-  Serial.println("========================================");
-  GSM.end();
-  delay(300);
-  GSM.begin(baud, SERIAL_8N1, GSM_RX, GSM_TX);
-  delay(1000);
-  flushGSM();
-  for (int attempt = 1; attempt <= 5; attempt++) {
-Serial.print("AT attempt ");
-Serial.print(attempt);
-Serial.println("/5");
+  Serial.print("[GSM-TX] ");
+  Serial.println(command);
+  GSM.print(command);
+  GSM.print("\r\n");
+  String response = "";
+  unsigned long start = millis();
+  while (millis() - start < timeout) {
+while (GSM.available()) {
 
-GSM.print("AT\r\n");
+  char c = GSM.read();
 
-unsigned long start = millis();
-String response = "";
-
-while (millis() - start < 2500) {
-
-  while (GSM.available()) {
-
-    char c = GSM.read();
-
-    response += c;
-
-    Serial.write(c);
-  }
-
-  delay(5);
+  response += c;
+  Serial.write(c);
 }
 
-if (response.indexOf("OK") >= 0) {
-
-  Serial.println();
-  Serial.println("****************************************");
-  Serial.println("       A7670C UART FOUND!");
-  Serial.print("       BAUD: ");
-  Serial.println(baud);
-  Serial.println("****************************************");
-
-  return true;
-}
-
-delay(500);
+delay(5);
 
   }
-  Serial.println();
-  Serial.println("NO OK RESPONSE.");
+  return response;
+}
+bool waitForDownload(unsigned long timeout) {
+  String response = "";
+  unsigned long start = millis();
+  while (millis() - start < timeout) {
+while (GSM.available()) {
+
+  char c = GSM.read();
+
+  response += c;
+  Serial.write(c);
+
+  if (response.indexOf("DOWNLOAD") >= 0) {
+    return true;
+  }
+}
+
+delay(5);
+
+  }
   return false;
 }
 void setup() {
   Serial.begin(115200);
   delay(2000);
+  GSM.begin(
+    GSM_BAUD,
+    SERIAL_8N1,
+    GSM_RX,
+    GSM_TX
+  );
+  delay(2000);
   Serial.println();
-  Serial.println("########################################");
-  Serial.println("       A7670C UART BAUD SCANNER");
-  Serial.println("########################################");
+  Serial.println("==================================================");
+  Serial.println("        A7670C -> RAILWAY GSM TEST");
+  Serial.println("==================================================");
   Serial.println();
   Serial.println("A7670C TXD -> ESP32 GPIO26");
   Serial.println("A7670C RXD -> ESP32 GPIO27");
-  Serial.println("A7670C GND -> ESP32 GND");
+  Serial.println("UART -> 115200");
+  // =================================================
+  // GSM CHECK
+  // =================================================
+  sendAT("AT", 3000);
+  sendAT("ATE0", 3000);
+  sendAT("AT+CPIN?", 5000);
+  sendAT("AT+CSQ", 5000);
+  sendAT("AT+CREG?", 5000);
+  sendAT("AT+CGREG?", 5000);
+  sendAT("AT+CEREG?", 5000);
+  sendAT("AT+COPS?", 10000);
+  sendAT("AT+CGATT?", 5000);
+  sendAT("AT+CGPADDR=1", 5000);
+  // =================================================
+  // HTTP INIT
+  // =================================================
   Serial.println();
-  bool found = false;
-  int totalBauds = sizeof(baudRates) / sizeof(baudRates[0]);
-  for (int i = 0; i < totalBauds; i++) {
-if (testBaud(baudRates[i])) {
-
-  found = true;
-
-  break;
-}
-
-  }
-  Serial.println();
-  Serial.println("########################################");
-  if (found) {
-Serial.println("✅ A7670C UART DETECTED");
-
-  } else {
-Serial.println("❌ A7670C UART NOT DETECTED");
-
+  Serial.println("==================================================");
+  Serial.println("                HTTP INIT");
+  Serial.println("==================================================");
+  sendAT("AT+HTTPTERM", 3000);
+  delay(1000);
+  String httpInit = sendAT("AT+HTTPINIT", 5000);
+  if (httpInit.indexOf("OK") < 0) {
 Serial.println();
-Serial.println("Tested:");
+Serial.println("ERROR: HTTPINIT FAILED");
 
-for (int i = 0; i < totalBauds; i++) {
-
-  Serial.println(baudRates[i]);
-}
+return;
 
   }
-  Serial.println("########################################");
+  // =================================================
+  // URL
+  // =================================================
+  String url =
+    String("http://") +
+    SERVER_HOST +
+    ":" +
+    String(SERVER_PORT) +
+    SERVER_PATH;
+  Serial.println();
+  Serial.println("==================================================");
+  Serial.println("                  HTTP URL");
+  Serial.println("==================================================");
+  Serial.println(url);
+  // Build URL command WITHOUT escaped quotes
+  String urlCommand = "AT+HTTPPARA=";
+  urlCommand += char(34);
+  urlCommand += "URL";
+  urlCommand += char(34);
+  urlCommand += ",";
+  urlCommand += char(34);
+  urlCommand += url;
+  urlCommand += char(34);
+  sendAT(urlCommand, 5000);
+  // =================================================
+  // PAYLOAD
+  // =================================================
+  String payload;
+  payload =
+    "api_key=" + String(API_KEY) +
+    "&device_id=" + String(DEVICE_ID) +
+    "&temperature=27.50" +
+    "&ph=7.00" +
+    "&moisture=55" +
+    "&nitrogen=50" +
+    "&phosphorus=24" +
+    "&potassium=76";
+  Serial.println();
+  Serial.println("==================================================");
+  Serial.println("                 TEST PAYLOAD");
+  Serial.println("==================================================");
+  Serial.println(payload);
+  Serial.print("Payload length: ");
+  Serial.println(payload.length());
+  // =================================================
+  // HTTP DATA
+  // =================================================
+  String dataCommand =
+    "AT+HTTPDATA=" +
+    String(payload.length()) +
+    ",15000";
+  Serial.println();
+  Serial.print("[GSM-TX] ");
+  Serial.println(dataCommand);
+  GSM.print(dataCommand);
+  GSM.print("\r\n");
+  bool downloadReady = waitForDownload(10000);
+  if (!downloadReady) {
+Serial.println();
+Serial.println("ERROR: NO DOWNLOAD PROMPT");
+
+sendAT("AT+HTTPTERM", 3000);
+
+return;
+
+  }
+  Serial.println();
+  Serial.println("DOWNLOAD PROMPT RECEIVED");
+  delay(500);
+  // =================================================
+  // SEND PAYLOAD
+  // =================================================
+  Serial.println();
+  Serial.println("Sending payload...");
+  GSM.print(payload);
+  delay(3000);
+  while (GSM.available()) {
+char c = GSM.read();
+
+Serial.write(c);
+
+  }
+  // =================================================
+  // HTTP POST
+  // =================================================
+  Serial.println();
+  Serial.println("==================================================");
+  Serial.println("                 HTTP POST");
+  Serial.println("==================================================");
+  sendAT("AT+HTTPACTION=1", 30000);
+  delay(3000);
+  // =================================================
+  // HTTP READ
+  // =================================================
+  Serial.println();
+  Serial.println("==================================================");
+  Serial.println("                HTTP READ");
+  Serial.println("==================================================");
+  sendAT("AT+HTTPREAD", 15000);
+  // =================================================
+  // HTTP TERM
+  // =================================================
+  sendAT("AT+HTTPTERM", 5000);
+  Serial.println();
+  Serial.println("==================================================");
+  Serial.println("                 TEST FINISHED");
+  Serial.println("==================================================");
+  Serial.println();
 }
 void loop() {
-  // Manual Serial Monitor -> A7670C
   while (Serial.available()) {
 char c = Serial.read();
 
 GSM.write(c);
 
   }
-  // A7670C -> Serial Monitor
   while (GSM.available()) {
 char c = GSM.read();
 
