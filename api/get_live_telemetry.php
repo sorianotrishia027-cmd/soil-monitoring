@@ -5,7 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-header("Content-Type: application/json; charset=utf-8");
+header("Content-Type: application/json");
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
@@ -47,7 +47,7 @@ try {
     }
 
     // =====================================================
-    // 2. VERIFY USER
+    // 2. VERIFY USER FROM DATABASE
     // =====================================================
 
     $userStmt = $conn->prepare("
@@ -75,6 +75,11 @@ try {
         exit;
     }
 
+    /*
+     * Database role is trusted instead of a client-controlled
+     * request value.
+     */
+
     $role = strtolower(trim($user['role'] ?? ''));
 
     if ($role === '') {
@@ -82,35 +87,33 @@ try {
     }
 
     // =====================================================
-    // 3. RESOLVE FARMER DEVICE
+    // 3. DETERMINE DATA SCOPE
     // =====================================================
 
-    $assignedDevice = null;
-    $matchedCandidate = null;
-    $deviceCandidates = [];
-
     /*
-     * IMPORTANT DATABASE STRUCTURE:
+     * ADMIN:
+     *   Can see all soil telemetry.
      *
-     * sensor_data:
-     *   user_id
-     *   device_label
+     * FARMER:
+     *   Can ONLY see the node assigned to their own account.
      *
-     * soil_readings:
-     *   device_id
+     * ASSIGNMENT:
      *
-     * Therefore:
+     *   users.id
+     *       ↓
+     *   sensor_data.user_id
+     *       ↓
+     *   sensor_data.device_label
+     *       ↓
+     *   soil_readings.device_id
      *
-     * sensor_data.device_label
-     *              =
-     * soil_readings.device_id
+     * IMPORTANT:
+     * No device_id is accepted from GET, POST, or JavaScript.
      */
 
-    if ($role !== 'admin') {
+    $assignedDevice = null;
 
-        // -------------------------------------------------
-        // Get farmer's assigned device_label
-        // -------------------------------------------------
+    if ($role !== 'admin') {
 
         $assignmentStmt = $conn->prepare("
             SELECT device_label
@@ -119,79 +122,39 @@ try {
               AND device_label IS NOT NULL
               AND TRIM(device_label) <> ''
             ORDER BY id DESC
-            LIMIT 20
+            LIMIT 1
         ");
 
         $assignmentStmt->execute([$userId]);
 
-        $assignments = $assignmentStmt->fetchAll(PDO::FETCH_ASSOC);
+        $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
 
-        // -------------------------------------------------
-        // Build unique device candidates
-        // -------------------------------------------------
+        if (
+            $assignment &&
+            isset($assignment['device_label']) &&
+            trim((string)$assignment['device_label']) !== ''
+        ) {
 
-        foreach ($assignments as $assignment) {
-
-            $deviceLabel = trim(
-                (string)($assignment['device_label'] ?? '')
+            $assignedDevice = trim(
+                (string)$assignment['device_label']
             );
-
-            if ($deviceLabel !== '') {
-
-                if (!in_array(
-                    $deviceLabel,
-                    $deviceCandidates,
-                    true
-                )) {
-
-                    $deviceCandidates[] = $deviceLabel;
-                }
-            }
         }
 
-        // -------------------------------------------------
-        // Find candidate that actually has soil telemetry
-        // -------------------------------------------------
-
-        foreach ($deviceCandidates as $candidate) {
-
-            $checkStmt = $conn->prepare("
-                SELECT COUNT(*)
-                FROM soil_readings
-                WHERE device_id = ?
-            ");
-
-            $checkStmt->execute([
-                $candidate
-            ]);
-
-            $candidateCount = (int)$checkStmt->fetchColumn();
-
-            if ($candidateCount > 0) {
-
-                $assignedDevice = $candidate;
-                $matchedCandidate = $candidate;
-
-                break;
-            }
-        }
-
-        // -------------------------------------------------
-        // No matching telemetry
-        // -------------------------------------------------
+        /*
+         * No assigned node:
+         * NEVER fall back to global telemetry.
+         */
 
         if ($assignedDevice === null) {
 
             echo json_encode([
                 "status" => "empty",
-                "message" => "No telemetry data found for the node assigned to this farmer account.",
+                "message" => "No node is assigned to this farmer account.",
                 "data" => null,
                 "recent_logs" => [],
                 "total_count" => 0,
                 "assigned_device" => null,
-                "matched_device" => null,
-                "role" => $role,
-                "debug_candidates" => $deviceCandidates
+                "role" => $role
             ]);
 
             exit;
@@ -221,15 +184,13 @@ try {
             LIMIT 1
         ");
 
-        $stmt->execute([
-            $assignedDevice
-        ]);
+        $stmt->execute([$assignedDevice]);
     }
 
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // =====================================================
-    // 5. NO LATEST TELEMETRY
+    // 5. NO TELEMETRY FOUND
     // =====================================================
 
     if (!$latest) {
@@ -241,7 +202,6 @@ try {
             "recent_logs" => [],
             "total_count" => 0,
             "assigned_device" => $assignedDevice,
-            "matched_device" => $matchedCandidate,
             "role" => $role
         ]);
 
@@ -279,12 +239,6 @@ try {
     $createdAt = $latest['created_at']
         ?? date('Y-m-d H:i:s');
 
-    $timestamp = strtotime($createdAt);
-
-    if ($timestamp === false) {
-        $timestamp = time();
-    }
-
     $npkOnline = (
         ($valN !== null && $valN > 0) ||
         ($valP !== null && $valP > 0) ||
@@ -293,11 +247,11 @@ try {
 
     $formattedTime = date(
         'M j, Y - g:i:s A',
-        $timestamp
+        strtotime($createdAt)
     );
 
     // =====================================================
-    // 7. LAST 7 READINGS FOR CHART
+    // 7. LAST 7 READINGS FOR LIVE CHART
     // =====================================================
 
     if ($role === 'admin') {
@@ -327,9 +281,7 @@ try {
             ORDER BY id ASC
         ");
 
-        $chartStmt->execute([
-            $assignedDevice
-        ]);
+        $chartStmt->execute([$assignedDevice]);
     }
 
     $chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -339,17 +291,9 @@ try {
 
     foreach ($chartRows as $row) {
 
-        $rowTimestamp = strtotime(
-            $row['created_at'] ?? ''
-        );
-
-        if ($rowTimestamp === false) {
-            $rowTimestamp = time();
-        }
-
         $chartLabels[] = date(
             'g:i:s A',
-            $rowTimestamp
+            strtotime($row['created_at'])
         );
 
         $chartData[] = floatval(
@@ -358,7 +302,7 @@ try {
     }
 
     // =====================================================
-    // 8. LAST 15 READINGS FOR HISTORY
+    // 8. LAST 15 READINGS FOR HISTORY TABLE
     // =====================================================
 
     if ($role === 'admin') {
@@ -380,9 +324,7 @@ try {
             LIMIT 15
         ");
 
-        $logsStmt->execute([
-            $assignedDevice
-        ]);
+        $logsStmt->execute([$assignedDevice]);
     }
 
     $recentLogs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -391,58 +333,41 @@ try {
 
     foreach ($recentLogs as $log) {
 
-        $logTimestamp = strtotime(
-            $log['created_at'] ?? ''
-        );
-
-        if ($logTimestamp === false) {
-            $logTimestamp = time();
-        }
-
         $formattedLogs[] = [
+            'id' => (int)($log['id'] ?? 0),
 
-            "id" => (int)(
-                $log['id'] ?? 0
-            ),
+            'device_id' => $log['device_id'] ?? '',
 
-            "device_id" => trim(
-                (string)(
-                    $log['device_id'] ?? ''
+            'created_at' => $log['created_at'] ?? '',
+
+            'formatted_time' => isset($log['created_at'])
+                ? date(
+                    "M j, Y - g:i A",
+                    strtotime($log['created_at'])
                 )
-            ),
+                : 'N/A',
 
-            "created_at" =>
-                $log['created_at'] ?? '',
-
-            "formatted_time" =>
-                !empty($log['created_at'])
-                    ? date(
-                        "M j, Y - g:i A",
-                        $logTimestamp
-                    )
-                    : "N/A",
-
-            "moisture" => floatval(
+            'moisture' => floatval(
                 $log['moisture'] ?? 0
             ),
 
-            "ph" => floatval(
+            'ph' => floatval(
                 $log['ph'] ?? 0
             ),
 
-            "nitrogen" => intval(
+            'nitrogen' => intval(
                 $log['nitrogen'] ?? 0
             ),
 
-            "phosphorus" => intval(
+            'phosphorus' => intval(
                 $log['phosphorus'] ?? 0
             ),
 
-            "potassium" => intval(
+            'potassium' => intval(
                 $log['potassium'] ?? 0
             ),
 
-            "temperature" => floatval(
+            'temperature' => floatval(
                 $log['temperature'] ?? 0
             )
         ];
@@ -469,29 +394,27 @@ try {
             WHERE device_id = ?
         ");
 
-        $countStmt->execute([
-            $assignedDevice
-        ]);
+        $countStmt->execute([$assignedDevice]);
 
         $totalCount = (int)$countStmt->fetchColumn();
     }
 
     // =====================================================
-    // 10. RETURN SUCCESS JSON
+    // 10. RETURN JSON
     // =====================================================
 
     echo json_encode([
-
         "status" => "success",
 
         "data" => [
+            "id" => (int)($latest['id'] ?? 0),
 
-            "id" => (int)(
-                $latest['id'] ?? 0
-            ),
+            /*
+             * For farmers this can only be the assigned node
+             * because $latest itself was filtered by device_id.
+             */
 
-            "device_id" =>
-                $latest['device_id']
+            "device_id" => $latest['device_id']
                 ?? $assignedDevice
                 ?? null,
 
@@ -524,18 +447,10 @@ try {
 
         "assigned_device" => $assignedDevice,
 
-        "matched_device" => $matchedCandidate,
-
         "role" => $role
-
     ]);
 
 } catch (PDOException $e) {
-
-    error_log(
-        '[GET LIVE TELEMETRY][PDO] ' .
-        $e->getMessage()
-    );
 
     http_response_code(500);
 
@@ -546,11 +461,6 @@ try {
 
 } catch (Throwable $e) {
 
-    error_log(
-        '[GET LIVE TELEMETRY][GENERAL] ' .
-        $e->getMessage()
-    );
-
     http_response_code(500);
 
     echo json_encode([
@@ -558,5 +468,4 @@ try {
         "message" => "Server error."
     ]);
 }
-
 ?>
