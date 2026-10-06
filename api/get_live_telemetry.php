@@ -86,27 +86,30 @@ try {
     // =====================================================
 
     $assignedDevice = null;
+    $matchedCandidate = null;
+    $deviceCandidates = [];
 
     /*
-     * These are only for diagnostics.
-     * They are not accepted from GET/POST/JavaScript.
+     * IMPORTANT:
+     *
+     * Do NOT use device_label here.
+     *
+     * We only need device_id because soil_readings
+     * stores the actual telemetry using device_id.
      */
-    $deviceCandidates = [];
-    $matchedCandidate = null;
 
     if ($role !== 'admin') {
 
-        /*
-         * Get BOTH device_id and device_label.
-         *
-         * Previous code only used device_label.
-         * That can cause a mismatch because soil_readings
-         * uses device_id.
-         */
+        // -------------------------------------------------
+        // Get device_id assigned to this farmer
+        // -------------------------------------------------
+
         $assignmentStmt = $conn->prepare("
-            SELECT id, device_id, device_label
+            SELECT device_id
             FROM sensor_data
             WHERE user_id = ?
+              AND device_id IS NOT NULL
+              AND TRIM(device_id) <> ''
             ORDER BY id DESC
             LIMIT 20
         ");
@@ -115,34 +118,33 @@ try {
 
         $assignments = $assignmentStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        /*
-         * Build unique candidate list.
-         *
-         * Newest sensor_data records are checked first.
-         */
+        // -------------------------------------------------
+        // Build unique device candidates
+        // -------------------------------------------------
+
         foreach ($assignments as $assignment) {
 
-            $deviceId = trim((string)($assignment['device_id'] ?? ''));
-            $deviceLabel = trim((string)($assignment['device_label'] ?? ''));
+            $deviceId = trim(
+                (string)($assignment['device_id'] ?? '')
+            );
 
             if ($deviceId !== '') {
 
-                if (!in_array($deviceId, $deviceCandidates, true)) {
+                if (!in_array(
+                    $deviceId,
+                    $deviceCandidates,
+                    true
+                )) {
+
                     $deviceCandidates[] = $deviceId;
-                }
-            }
-
-            if ($deviceLabel !== '') {
-
-                if (!in_array($deviceLabel, $deviceCandidates, true)) {
-                    $deviceCandidates[] = $deviceLabel;
                 }
             }
         }
 
-        /*
-         * Find the candidate that ACTUALLY exists in soil_readings.
-         */
+        // -------------------------------------------------
+        // Find candidate that has actual soil telemetry
+        // -------------------------------------------------
+
         foreach ($deviceCandidates as $candidate) {
 
             $checkStmt = $conn->prepare("
@@ -164,9 +166,10 @@ try {
             }
         }
 
-        /*
-         * If no candidate has telemetry, do NOT use global data.
-         */
+        // -------------------------------------------------
+        // No telemetry for assigned farmer device
+        // -------------------------------------------------
+
         if ($assignedDevice === null) {
 
             echo json_encode([
@@ -208,7 +211,9 @@ try {
             LIMIT 1
         ");
 
-        $stmt->execute([$assignedDevice]);
+        $stmt->execute([
+            $assignedDevice
+        ]);
     }
 
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -227,7 +232,8 @@ try {
             "total_count" => 0,
             "assigned_device" => $assignedDevice,
             "matched_device" => $matchedCandidate,
-            "role" => $role
+            "role" => $role,
+            "debug_candidates" => $deviceCandidates
         ]);
 
         exit;
@@ -312,7 +318,9 @@ try {
             ORDER BY id ASC
         ");
 
-        $chartStmt->execute([$assignedDevice]);
+        $chartStmt->execute([
+            $assignedDevice
+        ]);
     }
 
     $chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -363,7 +371,9 @@ try {
             LIMIT 15
         ");
 
-        $logsStmt->execute([$assignedDevice]);
+        $logsStmt->execute([
+            $assignedDevice
+        ]);
     }
 
     $recentLogs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -381,20 +391,27 @@ try {
         }
 
         $formattedLogs[] = [
-            'id' => (int)($log['id'] ?? 0),
 
-            'device_id' => trim(
-                (string)($log['device_id'] ?? '')
+            'id' => (int)(
+                $log['id'] ?? 0
             ),
 
-            'created_at' => $log['created_at'] ?? '',
-
-            'formatted_time' => !empty($log['created_at'])
-                ? date(
-                    "M j, Y - g:i A",
-                    $logTimestamp
+            'device_id' => trim(
+                (string)(
+                    $log['device_id'] ?? ''
                 )
-                : 'N/A',
+            ),
+
+            'created_at' =>
+                $log['created_at'] ?? '',
+
+            'formatted_time' =>
+                !empty($log['created_at'])
+                    ? date(
+                        "M j, Y - g:i A",
+                        $logTimestamp
+                    )
+                    : 'N/A',
 
             'moisture' => floatval(
                 $log['moisture'] ?? 0
@@ -443,22 +460,29 @@ try {
             WHERE device_id = ?
         ");
 
-        $countStmt->execute([$assignedDevice]);
+        $countStmt->execute([
+            $assignedDevice
+        ]);
 
         $totalCount = (int)$countStmt->fetchColumn();
     }
 
     // =====================================================
-    // 10. RETURN JSON
+    // 10. RETURN SUCCESS JSON
     // =====================================================
 
     echo json_encode([
+
         "status" => "success",
 
         "data" => [
-            "id" => (int)($latest['id'] ?? 0),
 
-            "device_id" => $latest['device_id']
+            "id" => (int)(
+                $latest['id'] ?? 0
+            ),
+
+            "device_id" =>
+                $latest['device_id']
                 ?? $assignedDevice
                 ?? null,
 
@@ -495,16 +519,13 @@ try {
 
         "role" => $role,
 
-        /*
-         * Temporary diagnostic information.
-         * This helps us confirm exactly which device values
-         * belong to the farmer.
-         */
-        "debug_candidates" => $deviceCandidates
+        "debug_candidates" =>
+            $deviceCandidates
     ]);
 
 } catch (PDOException $e) {
 
+    // Log the REAL database error on Railway.
     error_log(
         '[GET LIVE TELEMETRY][PDO] ' .
         $e->getMessage()
@@ -531,4 +552,5 @@ try {
         "message" => "Server error."
     ]);
 }
+
 ?>
