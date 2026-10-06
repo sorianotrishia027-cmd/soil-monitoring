@@ -90,26 +90,34 @@ try {
     $deviceCandidates = [];
 
     /*
-     * IMPORTANT:
+     * IMPORTANT DATABASE STRUCTURE:
      *
-     * Do NOT use device_label here.
+     * sensor_data:
+     *   user_id
+     *   device_label
      *
-     * We only need device_id because soil_readings
-     * stores the actual telemetry using device_id.
+     * soil_readings:
+     *   device_id
+     *
+     * Therefore:
+     *
+     * sensor_data.device_label
+     *              =
+     * soil_readings.device_id
      */
 
     if ($role !== 'admin') {
 
         // -------------------------------------------------
-        // Get device_id assigned to this farmer
+        // Get farmer's assigned device_label
         // -------------------------------------------------
 
         $assignmentStmt = $conn->prepare("
-            SELECT device_id
+            SELECT device_label
             FROM sensor_data
             WHERE user_id = ?
-              AND device_id IS NOT NULL
-              AND TRIM(device_id) <> ''
+              AND device_label IS NOT NULL
+              AND TRIM(device_label) <> ''
             ORDER BY id DESC
             LIMIT 20
         ");
@@ -124,25 +132,25 @@ try {
 
         foreach ($assignments as $assignment) {
 
-            $deviceId = trim(
-                (string)($assignment['device_id'] ?? '')
+            $deviceLabel = trim(
+                (string)($assignment['device_label'] ?? '')
             );
 
-            if ($deviceId !== '') {
+            if ($deviceLabel !== '') {
 
                 if (!in_array(
-                    $deviceId,
+                    $deviceLabel,
                     $deviceCandidates,
                     true
                 )) {
 
-                    $deviceCandidates[] = $deviceId;
+                    $deviceCandidates[] = $deviceLabel;
                 }
             }
         }
 
         // -------------------------------------------------
-        // Find candidate that has actual soil telemetry
+        // Find candidate that actually has soil telemetry
         // -------------------------------------------------
 
         foreach ($deviceCandidates as $candidate) {
@@ -153,7 +161,9 @@ try {
                 WHERE device_id = ?
             ");
 
-            $checkStmt->execute([$candidate]);
+            $checkStmt->execute([
+                $candidate
+            ]);
 
             $candidateCount = (int)$checkStmt->fetchColumn();
 
@@ -167,7 +177,7 @@ try {
         }
 
         // -------------------------------------------------
-        // No telemetry for assigned farmer device
+        // No matching telemetry
         // -------------------------------------------------
 
         if ($assignedDevice === null) {
@@ -232,8 +242,7 @@ try {
             "total_count" => 0,
             "assigned_device" => $assignedDevice,
             "matched_device" => $matchedCandidate,
-            "role" => $role,
-            "debug_candidates" => $deviceCandidates
+            "role" => $role
         ]);
 
         exit;
@@ -392,48 +401,48 @@ try {
 
         $formattedLogs[] = [
 
-            'id' => (int)(
+            "id" => (int)(
                 $log['id'] ?? 0
             ),
 
-            'device_id' => trim(
+            "device_id" => trim(
                 (string)(
                     $log['device_id'] ?? ''
                 )
             ),
 
-            'created_at' =>
+            "created_at" =>
                 $log['created_at'] ?? '',
 
-            'formatted_time' =>
+            "formatted_time" =>
                 !empty($log['created_at'])
                     ? date(
                         "M j, Y - g:i A",
                         $logTimestamp
                     )
-                    : 'N/A',
+                    : "N/A",
 
-            'moisture' => floatval(
+            "moisture" => floatval(
                 $log['moisture'] ?? 0
             ),
 
-            'ph' => floatval(
+            "ph" => floatval(
                 $log['ph'] ?? 0
             ),
 
-            'nitrogen' => intval(
+            "nitrogen" => intval(
                 $log['nitrogen'] ?? 0
             ),
 
-            'phosphorus' => intval(
+            "phosphorus" => intval(
                 $log['phosphorus'] ?? 0
             ),
 
-            'potassium' => intval(
+            "potassium" => intval(
                 $log['potassium'] ?? 0
             ),
 
-            'temperature' => floatval(
+            "temperature" => floatval(
                 $log['temperature'] ?? 0
             )
         ];
@@ -517,10 +526,8 @@ try {
 
         "matched_device" => $matchedCandidate,
 
-        "role" => $role,
+        "role" => $role
 
-        "debug_candidates" =>
-            $deviceCandidates
     ]);
 
 } catch (PDOException $e) {
@@ -534,25 +541,8 @@ try {
 
     echo json_encode([
         "status" => "error",
-        "message" => "Database error.",
-        "debug" => $e->getMessage()
+        "message" => "Database error."
     ]);
-
-} catch (Throwable $e) {
-
-    error_log(
-        '[GET LIVE TELEMETRY][GENERAL] ' .
-        $e->getMessage()
-    );
-
-    http_response_code(500);
-
-    echo json_encode([
-        "status" => "error",
-        "message" => "Server error.",
-        "debug" => $e->getMessage()
-    ]);
-
 
 } catch (Throwable $e) {
 
