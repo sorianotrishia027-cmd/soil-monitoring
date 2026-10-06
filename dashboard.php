@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 
@@ -9,9 +8,13 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once 'config/db_connect.php';
 
-$role = strtolower(trim($_SESSION['role'] ?? 'farmer'));
+/*
+|--------------------------------------------------------------------------
+| CURRENT USER SESSION
+|--------------------------------------------------------------------------
+*/
+
 $user_id = intval($_SESSION['user_id'] ?? 0);
-$page = $_GET['page'] ?? 'home';
 
 if ($user_id <= 0) {
     session_destroy();
@@ -19,17 +22,104 @@ if ($user_id <= 0) {
     exit;
 }
 
+$page = $_GET['page'] ?? 'home';
+
+$currentUser = null;
+$databaseError = false;
+
+/*
+|--------------------------------------------------------------------------
+| LOAD CURRENT LOGGED-IN USER
+|--------------------------------------------------------------------------
+|
+| This is important for My Profile.
+| The profile page can also use $currentUser directly.
+|
+*/
+
+try {
+
+    $userStmt = $conn->prepare("
+        SELECT
+            id,
+            username,
+            email,
+            fullname,
+            role,
+            contact_number
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $userStmt->execute([$user_id]);
+
+    $currentUser = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$currentUser) {
+
+        session_destroy();
+        header("Location: auth/login.php");
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET ROLE FROM DATABASE
+    |--------------------------------------------------------------------------
+    */
+
+    $role = strtolower(trim($currentUser['role'] ?? ''));
+
+    if ($role === '') {
+        $role = 'farmer';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SYNCHRONIZE SESSION DATA
+    |--------------------------------------------------------------------------
+    */
+
+    $_SESSION['user_id'] = (int)$currentUser['id'];
+    $_SESSION['username'] = $currentUser['username'] ?? '';
+    $_SESSION['email'] = $currentUser['email'] ?? '';
+    $_SESSION['fullname'] = $currentUser['fullname'] ?? '';
+    $_SESSION['role'] = $role;
+    $_SESSION['contact_number'] = $currentUser['contact_number'] ?? '';
+
+} catch (PDOException $e) {
+
+    $databaseError = true;
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO SESSION
+    |--------------------------------------------------------------------------
+    */
+
+    $role = strtolower(trim($_SESSION['role'] ?? 'farmer'));
+
+    if ($role === '') {
+        $role = 'farmer';
+    }
+
+    $currentUser = [
+        'id' => $user_id,
+        'username' => $_SESSION['username'] ?? '',
+        'email' => $_SESSION['email'] ?? '',
+        'fullname' => $_SESSION['fullname'] ?? '',
+        'role' => $role,
+        'contact_number' => $_SESSION['contact_number'] ?? ''
+    ];
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | SECURITY: ALLOWED PAGES
 |--------------------------------------------------------------------------
 */
-
-$admin_exclusive_pages = [
-    'users_manage',
-    'devices_manage',
-    'system_reports'
-];
 
 $farmer_pages = [
     'home',
@@ -48,24 +138,10 @@ $admin_pages = [
     'profile'
 ];
 
-/*
-|--------------------------------------------------------------------------
-| SECURITY: FARMER PAGE ACCESS
-|--------------------------------------------------------------------------
-*/
-
-if ($role === 'farmer') {
-
-    if (!in_array($page, $farmer_pages, true)) {
-        header("Location: dashboard.php?page=home");
-        exit;
-    }
-
-}
 
 /*
 |--------------------------------------------------------------------------
-| SECURITY: ADMIN PAGE ACCESS
+| SECURITY: PAGE ACCESS
 |--------------------------------------------------------------------------
 */
 
@@ -76,65 +152,27 @@ if ($role === 'admin') {
         exit;
     }
 
-}
-
-/*
-|--------------------------------------------------------------------------
-| VALIDATE USER ACCOUNT
-|--------------------------------------------------------------------------
-*/
-
-try {
-
-    $userStmt = $conn->prepare("
-        SELECT id, username, email, fullname, role, contact_number
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-    ");
-
-    $userStmt->execute([$user_id]);
-
-    $currentUser = $userStmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$currentUser) {
-        session_destroy();
-        header("Location: auth/login.php");
-        exit;
-    }
+} else {
 
     /*
     |--------------------------------------------------------------------------
-    | IMPORTANT:
-    | Do not allow session role to disagree with database role.
+    | ALL NON-ADMIN USERS ARE TREATED AS FARMER
     |--------------------------------------------------------------------------
     */
 
-    $databaseRole = strtolower(trim($currentUser['role'] ?? ''));
+    $role = 'farmer';
 
-    if ($databaseRole !== $role) {
-
-        $_SESSION['role'] = $databaseRole;
-        $role = $databaseRole;
-
+    if (!in_array($page, $farmer_pages, true)) {
+        header("Location: dashboard.php?page=home");
+        exit;
     }
-
-} catch (PDOException $e) {
-
-    $currentUser = null;
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| FIND FARMER'S ASSIGNED NODE
+| FIND FARMER ASSIGNED DEVICE
 |--------------------------------------------------------------------------
-|
-| IMPORTANT:
-| The farmer's data must be connected to their account.
-|
-| We first try to find the node/device assignment through sensor_data.
-|
 */
 
 $assigned_node_id = null;
@@ -146,8 +184,7 @@ if ($role === 'farmer') {
 
         /*
         |--------------------------------------------------------------------------
-        | OPTION 1:
-        | sensor_data contains user_id + device_id
+        | TRY SENSOR DATA ASSIGNMENT
         |--------------------------------------------------------------------------
         */
 
@@ -168,13 +205,11 @@ if ($role === 'farmer') {
         if ($nodeResult && !empty($nodeResult['device_id'])) {
 
             $assigned_device_id = trim($nodeResult['device_id']);
-
         }
 
     } catch (PDOException $e) {
 
         $assigned_device_id = null;
-
     }
 }
 
@@ -182,20 +217,6 @@ if ($role === 'farmer') {
 /*
 |--------------------------------------------------------------------------
 | LATEST TELEMETRY
-|--------------------------------------------------------------------------
-|
-| ADMIN:
-|   Can see the latest system-wide telemetry.
-|
-| FARMER:
-|   Must NEVER receive global telemetry here.
-|
-|   If sensor_data contains user_id:
-|       get the latest record belonging to this farmer.
-|
-|   If the farmer has a device_id:
-|       soil_readings is filtered by that device.
-|
 |--------------------------------------------------------------------------
 */
 
@@ -207,7 +228,7 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | ADMIN CAN VIEW SYSTEM-WIDE DATA
+        | ADMIN CAN SEE LATEST SYSTEM TELEMETRY
         |--------------------------------------------------------------------------
         */
 
@@ -224,13 +245,11 @@ try {
 
         /*
         |--------------------------------------------------------------------------
-        | FARMER:
-        | NEVER USE:
-        |
-        | SELECT * FROM soil_readings ORDER BY id DESC LIMIT 1
-        |
-        | because that exposes another farmer's data.
+        | FARMER
         |--------------------------------------------------------------------------
+        |
+        | Only show the farmer's assigned device data.
+        |
         */
 
         if ($assigned_device_id !== null) {
@@ -253,10 +272,7 @@ try {
 
             /*
             |--------------------------------------------------------------------------
-            | FALLBACK:
-            | If no device assignment exists, try sensor_data ownership.
-            |
-            | This prevents showing another farmer's telemetry.
+            | FALLBACK TO SENSOR_DATA OWNERSHIP
             |--------------------------------------------------------------------------
             */
 
@@ -279,29 +295,35 @@ try {
             } catch (PDOException $innerException) {
 
                 $latest = null;
-
             }
-
         }
-
     }
 
 } catch (PDOException $e) {
 
     $latest = null;
-
 }
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Sto Cristo Concepcion Farmers Agriculture Cooperative</title>
+<meta charset="UTF-8">
 
-<link rel="stylesheet" href="css/style.css">
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>
+    Sto Cristo Concepcion Farmers Agriculture Cooperative
+</title>
+
+<link
+    rel="stylesheet"
+    href="css/style.css"
+>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -311,276 +333,38 @@ try {
 
 <div class="dashboard-layout-wrapper">
 
-    <aside class="sidebar-nav-panel">
 
-        <div class="sidebar-brand-header">
+<!-- =========================================================
+     SIDEBAR
+========================================================== -->
 
-            <div
-                class="circular-logo-icon"
-                style="font-weight: 800; font-size: 14px; color: var(--primary-color);"
-            >
-                SCC
-            </div>
+<aside class="sidebar-nav-panel">
 
+    <div class="sidebar-brand-header">
+
+        <div
+            class="circular-logo-icon"
+            style="
+                font-weight:800;
+                font-size:14px;
+                color:var(--primary-color);
+            "
+        >
+            SCC
         </div>
 
+    </div>
 
-        <ul class="sidebar-menu-links">
 
-            <li>
+    <ul class="sidebar-menu-links">
 
-                <a
-                    href="dashboard.php?page=home"
-                    class="menu-link-item <?= $page === 'home' ? 'active' : '' ?>"
-                >
+        <!-- HOME -->
 
-                    <svg
-                        viewBox="0 0 24 24"
-                        width="18"
-                        height="18"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        fill="none"
-                    >
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-
-                    <span class="nav-text">Home</span>
-
-                </a>
-
-            </li>
-
-
-            <?php if ($role === 'admin'): ?>
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=users_manage"
-                        class="menu-link-item <?= $page === 'users_manage' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-
-                        <span class="nav-text">Manage Accounts</span>
-
-                    </a>
-
-                </li>
-
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=devices_manage"
-                        class="menu-link-item <?= $page === 'devices_manage' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                            <line x1="6" y1="6" x2="6.01" y2="6"/>
-                            <line x1="6" y1="18" x2="6.01" y2="18"/>
-                        </svg>
-
-                        <span class="nav-text">Manage Hardware</span>
-
-                    </a>
-
-                </li>
-
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=soil"
-                        class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <line x1="18" y1="20" x2="18" y2="10"/>
-                            <line x1="12" y1="20" x2="12" y2="4"/>
-                            <line x1="6" y1="20" x2="6" y2="14"/>
-                        </svg>
-
-                        <span class="nav-text">All Sensor Data</span>
-
-                    </a>
-
-                </li>
-
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=system_reports"
-                        class="menu-link-item <?= $page === 'system_reports' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-
-                        <span class="nav-text">System Reports</span>
-
-                    </a>
-
-                </li>
-
-            <?php else: ?>
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=soil"
-                        class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <line x1="18" y1="20" x2="18" y2="10"/>
-                            <line x1="12" y1="20" x2="12" y2="4"/>
-                            <line x1="6" y1="20" x2="6" y2="14"/>
-                        </svg>
-
-                        <span class="nav-text">My Soil Data</span>
-
-                    </a>
-
-                </li>
-
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=alerts"
-                        class="menu-link-item <?= $page === 'alerts' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
-
-                        <span class="nav-text">My Alerts</span>
-
-                    </a>
-
-                </li>
-
-
-                <li>
-
-                    <a
-                        href="dashboard.php?page=recommendations"
-                        class="menu-link-item <?= $page === 'recommendations' ? 'active' : '' ?>"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            width="18"
-                            height="18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            fill="none"
-                        >
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                        </svg>
-
-                        <span class="nav-text">Recommendations</span>
-
-                    </a>
-
-                </li>
-
-            <?php endif; ?>
-
-
-            <li>
-
-                <a
-                    href="dashboard.php?page=profile"
-                    class="menu-link-item <?= $page === 'profile' ? 'active' : '' ?>"
-                >
-
-                    <svg
-                        viewBox="0 0 24 24"
-                        width="18"
-                        height="18"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        fill="none"
-                    >
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                    </svg>
-
-                    <span class="nav-text">My Profile</span>
-
-                </a>
-
-            </li>
-
-        </ul>
-
-
-        <div class="sidebar-bottom-action">
+        <li>
 
             <a
-                href="auth/logout.php"
-                class="menu-link-item logout-link-style"
+                href="dashboard.php?page=home"
+                class="menu-link-item <?= $page === 'home' ? 'active' : '' ?>"
             >
 
                 <svg
@@ -591,100 +375,618 @@ try {
                     stroke-width="2"
                     fill="none"
                 >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
 
-                <span class="nav-text">Logout</span>
+                <span class="nav-text">
+                    Home
+                </span>
 
             </a>
 
-        </div>
-
-    </aside>
+        </li>
 
 
-    <main class="main-dashboard-canvas">
+        <!-- =================================================
+             ADMIN MENU
+        ================================================== -->
 
-        <header class="dashboard-canvas-header">
+        <?php if ($role === 'admin'): ?>
 
-            <h2>
-                Sto Cristo Concepcion Farmers Agriculture Cooperative
-            </h2>
 
-            <div class="header-action-widgets">
+            <!-- MANAGE ACCOUNTS -->
 
-                <span class="user-badge">
-                    <?= htmlspecialchars($_SESSION['username'] ?? 'User') ?>
-                    (<?= ucfirst($role) ?>)
+            <li>
+
+                <a
+                    href="dashboard.php?page=users_manage"
+                    class="menu-link-item <?= $page === 'users_manage' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+
+                    <span class="nav-text">
+                        Manage Accounts
+                    </span>
+
+                </a>
+
+            </li>
+
+
+            <!-- MANAGE HARDWARE -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=devices_manage"
+                    class="menu-link-item <?= $page === 'devices_manage' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <rect
+                            x="2"
+                            y="2"
+                            width="20"
+                            height="8"
+                            rx="2"
+                            ry="2"
+                        />
+
+                        <rect
+                            x="2"
+                            y="14"
+                            width="20"
+                            height="8"
+                            rx="2"
+                            ry="2"
+                        />
+
+                        <line
+                            x1="6"
+                            y1="6"
+                            x2="6.01"
+                            y2="6"
+                        />
+
+                        <line
+                            x1="6"
+                            y1="18"
+                            x2="6.01"
+                            y2="18"
+                        />
+                    </svg>
+
+                    <span class="nav-text">
+                        Manage Hardware
+                    </span>
+
+                </a>
+
+            </li>
+
+
+            <!-- ALL SENSOR DATA -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=soil"
+                    class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <line
+                            x1="18"
+                            y1="20"
+                            x2="18"
+                            y2="10"
+                        />
+
+                        <line
+                            x1="12"
+                            y1="20"
+                            x2="12"
+                            y2="4"
+                        />
+
+                        <line
+                            x1="6"
+                            y1="20"
+                            x2="6"
+                            y2="14"
+                        />
+                    </svg>
+
+                    <span class="nav-text">
+                        All Sensor Data
+                    </span>
+
+                </a>
+
+            </li>
+
+
+            <!-- SYSTEM REPORTS -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=system_reports"
+                    class="menu-link-item <?= $page === 'system_reports' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+
+                    <span class="nav-text">
+                        System Reports
+                    </span>
+
+                </a>
+
+            </li>
+
+
+        <?php else: ?>
+
+
+            <!-- =================================================
+                 FARMER MENU
+            ================================================== -->
+
+            <!-- MY SOIL DATA -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=soil"
+                    class="menu-link-item <?= $page === 'soil' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <line
+                            x1="18"
+                            y1="20"
+                            x2="18"
+                            y2="10"
+                        />
+
+                        <line
+                            x1="12"
+                            y1="20"
+                            x2="12"
+                            y2="4"
+                        />
+
+                        <line
+                            x1="6"
+                            y1="20"
+                            x2="6"
+                            y2="14"
+                        />
+                    </svg>
+
+                    <span class="nav-text">
+                        My Soil Data
+                    </span>
+
+                </a>
+
+            </li>
+
+
+            <!-- MY ALERTS -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=alerts"
+                    class="menu-link-item <?= $page === 'alerts' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line
+                            x1="12"
+                            y1="9"
+                            x2="12"
+                            y2="13"
+                        />
+                        <line
+                            x1="12"
+                            y1="17"
+                            x2="12.01"
+                            y2="17"
+                        />
+                    </svg>
+
+                    <span class="nav-text">
+                        My Alerts
+                    </span>
+
+                </a>
+
+            </li>
+
+
+            <!-- RECOMMENDATIONS -->
+
+            <li>
+
+                <a
+                    href="dashboard.php?page=recommendations"
+                    class="menu-link-item <?= $page === 'recommendations' ? 'active' : '' ?>"
+                >
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+
+                    <span class="nav-text">
+                        Recommendations
+                    </span>
+
+                </a>
+
+            </li>
+
+
+        <?php endif; ?>
+
+
+        <!-- =================================================
+             MY PROFILE
+        ================================================== -->
+
+        <li>
+
+            <a
+                href="dashboard.php?page=profile"
+                class="menu-link-item <?= $page === 'profile' ? 'active' : '' ?>"
+            >
+
+                <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    fill="none"
+                >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle
+                        cx="12"
+                        cy="7"
+                        r="4"
+                    />
+                </svg>
+
+                <span class="nav-text">
+                    My Profile
                 </span>
 
-            </div>
+            </a>
 
-        </header>
+        </li>
+
+    </ul>
 
 
-        <div class="view-content-outlet-container">
+    <!-- =====================================================
+         LOGOUT
+    ====================================================== -->
 
-            <?php
+    <div class="sidebar-bottom-action">
 
-            switch ($page) {
+        <a
+            href="auth/logout.php"
+            class="menu-link-item logout-link-style"
+        >
 
-                case 'soil':
-                    include 'views/soil_data.php';
-                    break;
+            <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+            >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line
+                    x1="21"
+                    y1="12"
+                    x2="9"
+                    y2="12"
+                />
+            </svg>
 
-                case 'alerts':
-                    include 'views/alerts.php';
-                    break;
+            <span class="nav-text">
+                Logout
+            </span>
 
-                case 'recommendations':
-                    include 'views/recommendations.php';
-                    break;
+        </a>
 
-                case 'users_manage':
+    </div>
 
-                    if ($role === 'admin') {
-                        include 'views/users_manage.php';
-                    }
+</aside>
 
-                    break;
 
-                case 'devices_manage':
+<!-- =========================================================
+     MAIN CONTENT
+========================================================== -->
 
-                    if ($role === 'admin') {
-                        include 'views/devices_manage.php';
-                    }
+<main class="main-dashboard-canvas">
 
-                    break;
 
-                case 'system_reports':
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
 
-                    if ($role === 'admin') {
-                        include 'views/system_reports.php';
-                    }
+    <header class="dashboard-canvas-header">
 
-                    break;
+        <h2>
+            Sto Cristo Concepcion Farmers Agriculture Cooperative
+        </h2>
 
-                case 'profile':
-                    include 'views/profile.php';
-                    break;
 
-                case 'home':
-                default:
-                    include 'views/home.php';
-                    break;
-            }
+        <div class="header-action-widgets">
 
-            ?>
+            <span class="user-badge">
+
+                <?= htmlspecialchars(
+                    $_SESSION['username'] ?? $currentUser['username'] ?? 'User',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+
+                (<?= htmlspecialchars(
+                    ucfirst($role),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>)
+
+            </span>
 
         </div>
 
-    </main>
+    </header>
+
+
+    <!-- =====================================================
+         PAGE CONTENT
+    ====================================================== -->
+
+    <div class="view-content-outlet-container">
+
+
+        <?php
+
+        switch ($page) {
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SOIL DATA
+            |--------------------------------------------------------------------------
+            */
+
+            case 'soil':
+
+                include 'views/soil_data.php';
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | ALERTS
+            |--------------------------------------------------------------------------
+            */
+
+            case 'alerts':
+
+                if ($role === 'farmer') {
+
+                    include 'views/alerts.php';
+
+                } else {
+
+                    header("Location: dashboard.php?page=home");
+                    exit;
+                }
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | RECOMMENDATIONS
+            |--------------------------------------------------------------------------
+            */
+
+            case 'recommendations':
+
+                if ($role === 'farmer') {
+
+                    include 'views/recommendations.php';
+
+                } else {
+
+                    header("Location: dashboard.php?page=home");
+                    exit;
+                }
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MANAGE ACCOUNTS
+            |--------------------------------------------------------------------------
+            */
+
+            case 'users_manage':
+
+                if ($role === 'admin') {
+
+                    include 'views/users_manage.php';
+
+                } else {
+
+                    header("Location: dashboard.php?page=home");
+                    exit;
+                }
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MANAGE HARDWARE
+            |--------------------------------------------------------------------------
+            */
+
+            case 'devices_manage':
+
+                if ($role === 'admin') {
+
+                    include 'views/devices_manage.php';
+
+                } else {
+
+                    header("Location: dashboard.php?page=home");
+                    exit;
+                }
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SYSTEM REPORTS
+            |--------------------------------------------------------------------------
+            */
+
+            case 'system_reports':
+
+                if ($role === 'admin') {
+
+                    include 'views/system_reports.php';
+
+                } else {
+
+                    header("Location: dashboard.php?page=home");
+                    exit;
+                }
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MY PROFILE
+            |--------------------------------------------------------------------------
+            |
+            | $currentUser is already loaded above.
+            | views/profile.php can use this variable.
+            |
+            */
+
+            case 'profile':
+
+                include 'views/profile.php';
+
+                break;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | HOME
+            |--------------------------------------------------------------------------
+            */
+
+            case 'home':
+
+            default:
+
+                include 'views/home.php';
+
+                break;
+        }
+
+        ?>
+
+    </div>
+
+</main>
 
 </div>
 
+
+<!-- =============================================================
+     GLOBAL JAVASCRIPT
+============================================================= -->
 
 <script src="js/script.js"></script>
 
