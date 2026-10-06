@@ -63,6 +63,11 @@ try {
 |--------------------------------------------------------------------------
 | RESOLVE FARMER DEVICE
 |--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| The API is the final source of truth.
+| This PHP resolver is only used for initial server-side rendering.
+|
 */
 
 $assigned_device_id = null;
@@ -82,6 +87,12 @@ if ($role !== 'admin') {
         $stmtDevice->execute([$user_id]);
 
         $deviceRows = $stmtDevice->fetchAll(PDO::FETCH_ASSOC);
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIRST: FIND A DEVICE THAT ACTUALLY HAS TELEMETRY
+        |--------------------------------------------------------------------------
+        */
 
         foreach ($deviceRows as $deviceRow) {
 
@@ -124,7 +135,7 @@ if ($role !== 'admin') {
 
         /*
         |--------------------------------------------------------------------------
-        | FALLBACK
+        | SECOND: FALLBACK TO ASSIGNED DEVICE RECORD
         |--------------------------------------------------------------------------
         */
 
@@ -681,21 +692,27 @@ $npkNoResponse = (
     </div>
 
 
-    <?php if ($role !== 'admin' && $assigned_device_id === null): ?>
+    <!--
+    IMPORTANT:
+    Do NOT show "No hardware node..." based only on the PHP resolver.
+    The API is the source of truth.
+    -->
 
-        <div style="
+    <div
+        id="soil-node-warning"
+        style="
+            display:none;
             background:#fff3cd;
             border:1px solid #ffe69c;
             color:#664d03;
             padding:18px;
             border-radius:12px;
             margin-bottom:20px;
-        ">
-            No hardware node is currently assigned to this farmer account.
-            Please contact the administrator to assign a node.
-        </div>
-
-    <?php endif; ?>
+        "
+    >
+        No hardware node is currently assigned to this farmer account.
+        Please contact the administrator to assign a node.
+    </div>
 
 
     <!-- METRICS -->
@@ -703,6 +720,7 @@ $npkNoResponse = (
     <div class="soil-metrics-grid">
 
         <?php
+
         $cards = [
             [
                 'card' => 'soil-card-moisture',
@@ -765,15 +783,21 @@ $npkNoResponse = (
                 'target' => '20°C - 32°C'
             ]
         ];
+
         ?>
 
         <?php foreach ($cards as $c): ?>
 
             <?php
+
             $isNpk =
                 in_array(
                     $c['card'],
-                    ['soil-card-n','soil-card-p','soil-card-k'],
+                    [
+                        'soil-card-n',
+                        'soil-card-p',
+                        'soil-card-k'
+                    ],
                     true
                 );
 
@@ -783,18 +807,20 @@ $npkNoResponse = (
                 $isNpk &&
                 $npkNoResponse
             ) {
+
                 $style = [
                     'color' => '#6c757d',
                     'border' => '#6c757d',
                     'status' => 'No Response'
                 ];
             }
+
             ?>
 
             <div
                 class="soil-metric-card"
-                id="<?= $c['card'] ?>"
-                style="border-left:5px solid <?= $style['border'] ?>;"
+                id="<?= htmlspecialchars($c['card']) ?>"
+                style="border-left:5px solid <?= htmlspecialchars($style['border']) ?>;"
             >
 
                 <div style="
@@ -814,14 +840,14 @@ $npkNoResponse = (
                     </span>
 
                     <span
-                        id="<?= $c['status'] ?>"
+                        id="<?= htmlspecialchars($c['status']) ?>"
                         style="
                             font-size:.7rem;
                             font-weight:600;
                             padding:2px 6px;
                             border-radius:6px;
-                            background:<?= $style['color'] ?>15;
-                            color:<?= $style['color'] ?>;
+                            background:<?= htmlspecialchars($style['color']) ?>15;
+                            color:<?= htmlspecialchars($style['color']) ?>;
                         "
                     >
                         <?= htmlspecialchars($style['status']) ?>
@@ -830,10 +856,10 @@ $npkNoResponse = (
                 </div>
 
                 <h2
-                    id="<?= $c['value'] ?>"
+                    id="<?= htmlspecialchars($c['value']) ?>"
                     style="
                         margin:5px 0;
-                        color:<?= $style['color'] ?>;
+                        color:<?= htmlspecialchars($style['color']) ?>;
                         font-size:1.6rem;
                     "
                 >
@@ -1008,9 +1034,9 @@ $npkNoResponse = (
                     font-weight:500;
                 "
             >
-                Page <?= $page ?>
-                of <?= max(1, $totalPages) ?>
-                (Total: <?= $totalRows ?>)
+                Page <?= (int)$page ?>
+                of <?= max(1, (int)$totalPages) ?>
+                (Total: <?= (int)$totalRows ?>)
             </div>
 
         </div>
@@ -1066,8 +1092,17 @@ $npkNoResponse = (
                                 ?? $log['temp']
                                 ?? 0;
 
-                            $lmStyle = getStatusStyle($lm, 30, 60);
-                            $lpHStyle = getStatusStyle($lpH, 5, 7.5);
+                            $lmStyle = getStatusStyle(
+                                $lm,
+                                30,
+                                60
+                            );
+
+                            $lpHStyle = getStatusStyle(
+                                $lpH,
+                                5,
+                                7.5
+                            );
 
                             ?>
 
@@ -1087,14 +1122,14 @@ $npkNoResponse = (
 
                                 <td style="
                                     font-weight:600;
-                                    color:<?= $lmStyle['color'] ?>;
+                                    color:<?= htmlspecialchars($lmStyle['color']) ?>;
                                 ">
                                     <?= number_format((float)$lm, 1) ?>%
                                 </td>
 
                                 <td style="
                                     font-weight:600;
-                                    color:<?= $lpHStyle['color'] ?>;
+                                    color:<?= htmlspecialchars($lpHStyle['color']) ?>;
                                 ">
                                     <?= number_format((float)$lpH, 1) ?>
                                 </td>
@@ -1246,19 +1281,6 @@ $npkNoResponse = (
 
     /*
     |--------------------------------------------------------------------------
-    | PREVENT DUPLICATE SCRIPT
-    |--------------------------------------------------------------------------
-    */
-
-    if (window.__soilTelemetryPageLoaded) {
-        return;
-    }
-
-    window.__soilTelemetryPageLoaded = true;
-
-
-    /*
-    |--------------------------------------------------------------------------
     | ELEMENTS
     |--------------------------------------------------------------------------
     */
@@ -1272,6 +1294,8 @@ $npkNoResponse = (
     const apiStatus =
         document.getElementById('soil-history-api-status');
 
+    const nodeWarning =
+        document.getElementById('soil-node-warning');
 
     const currentPage =
         <?= (int)$page ?>;
@@ -1377,7 +1401,11 @@ $npkNoResponse = (
             document.getElementById(valueId);
 
         const style =
-            healthStatus(value, min, max);
+            healthStatus(
+                value,
+                min,
+                max
+            );
 
 
         if (card) {
@@ -1455,22 +1483,40 @@ $npkNoResponse = (
         logs.forEach(function (log, index) {
 
             const moisture =
-                Number(log.moisture ?? 0);
+                Number(
+                    log.moisture ??
+                    log.soil_moisture ??
+                    0
+                );
 
             const ph =
-                Number(log.ph ?? 0);
+                Number(
+                    log.ph ??
+                    log.ph_level ??
+                    0
+                );
 
             const nitrogen =
-                log.nitrogen ?? 0;
+                log.nitrogen ??
+                log.n ??
+                0;
 
             const phosphorus =
-                log.phosphorus ?? 0;
+                log.phosphorus ??
+                log.p ??
+                0;
 
             const potassium =
-                log.potassium ?? 0;
+                log.potassium ??
+                log.k ??
+                0;
 
             const temperature =
-                Number(log.temperature ?? 0);
+                Number(
+                    log.temperature ??
+                    log.temp ??
+                    0
+                );
 
 
             const moistureStyle =
@@ -1493,6 +1539,48 @@ $npkNoResponse = (
                 log.formatted_time ??
                 log.created_at ??
                 'N/A';
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | FORMAT SERVER TIMESTAMP
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                log.formatted_time === undefined &&
+                log.created_at
+            ) {
+
+                try {
+
+                    const parsedDate =
+                        new Date(
+                            String(log.created_at)
+                                .replace(' ', 'T')
+                        );
+
+                    if (!isNaN(parsedDate.getTime())) {
+
+                        timestamp =
+                            parsedDate.toLocaleString(
+                                'en-US',
+                                {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit'
+                                }
+                            );
+                    }
+
+                } catch (e) {
+
+                    timestamp =
+                        log.created_at;
+                }
+            }
 
 
             timestamp =
@@ -1587,6 +1675,11 @@ $npkNoResponse = (
 
     function updateLiveCards(data) {
 
+        if (!data) {
+            return;
+        }
+
+
         updateCard(
             'soil-card-moisture',
             'soil-status-moisture',
@@ -1598,7 +1691,8 @@ $npkNoResponse = (
 
                 if (
                     v === null ||
-                    v === undefined
+                    v === undefined ||
+                    v === ''
                 ) {
                     return '--';
                 }
@@ -1619,12 +1713,13 @@ $npkNoResponse = (
 
                 if (
                     v === null ||
-                    v === undefined
+                    v === undefined ||
+                    v === ''
                 ) {
                     return '--';
                 }
 
-                return Number(v).toFixed(1);
+                return Number(v).toFixed(2);
             }
         );
 
@@ -1640,7 +1735,8 @@ $npkNoResponse = (
 
                 if (
                     v === null ||
-                    v === undefined
+                    v === undefined ||
+                    v === ''
                 ) {
                     return '--';
                 }
@@ -1649,6 +1745,12 @@ $npkNoResponse = (
             }
         );
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | NPK
+        |--------------------------------------------------------------------------
+        */
 
         if (data.npk_online) {
 
@@ -1660,6 +1762,14 @@ $npkNoResponse = (
                 20,
                 50,
                 function (v) {
+
+                    if (
+                        v === null ||
+                        v === undefined
+                    ) {
+                        return '--';
+                    }
+
                     return escapeHtml(v) +
                         ' <span style="font-size:.8rem;font-weight:normal;">mg/kg</span>';
                 }
@@ -1674,6 +1784,14 @@ $npkNoResponse = (
                 10,
                 30,
                 function (v) {
+
+                    if (
+                        v === null ||
+                        v === undefined
+                    ) {
+                        return '--';
+                    }
+
                     return escapeHtml(v) +
                         ' <span style="font-size:.8rem;font-weight:normal;">mg/kg</span>';
                 }
@@ -1688,6 +1806,14 @@ $npkNoResponse = (
                 15,
                 50,
                 function (v) {
+
+                    if (
+                        v === null ||
+                        v === undefined
+                    ) {
+                        return '--';
+                    }
+
                     return escapeHtml(v) +
                         ' <span style="font-size:.8rem;font-weight:normal;">mg/kg</span>';
                 }
@@ -1702,7 +1828,7 @@ $npkNoResponse = (
             };
 
 
-            ['n','p','k'].forEach(function (x) {
+            ['n', 'p', 'k'].forEach(function (x) {
 
                 const card =
                     document.getElementById(
@@ -1721,19 +1847,28 @@ $npkNoResponse = (
 
 
                 if (card) {
+
                     card.style.borderLeft =
-                        '5px solid #6c757d';
+                        '5px solid ' +
+                        off.border;
                 }
 
+
                 if (status) {
+
                     status.innerText =
                         off.status;
 
                     status.style.color =
                         off.color;
+
+                    status.style.backgroundColor =
+                        off.color + '15';
                 }
 
+
                 if (value) {
+
                     value.innerHTML =
                         '0 <span style="font-size:.8rem;font-weight:normal;">mg/kg</span>';
 
@@ -1786,9 +1921,82 @@ $npkNoResponse = (
 
         .then(function (result) {
 
+            console.log(
+                '[SOIL DATA] Telemetry API response:',
+                result
+            );
+
+
             /*
             |--------------------------------------------------------------------------
-            | API STATUS DISPLAY
+            | API ERROR
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !result ||
+                result.status !== 'success'
+            ) {
+
+                if (nodeWarning) {
+                    nodeWarning.style.display = 'block';
+                }
+
+                if (apiStatus) {
+
+                    apiStatus.style.color =
+                        '#dc3545';
+
+                    apiStatus.innerText =
+                        'API returned no telemetry data.';
+                }
+
+                return;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | API SUCCESS
+            |--------------------------------------------------------------------------
+            */
+
+            if (nodeWarning) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Only show warning if API itself confirms no device.
+                |--------------------------------------------------------------------------
+                */
+
+                const assignedDevice =
+                    result.assigned_device ??
+                    result.matched_device ??
+                    null;
+
+                if (
+                    result.role === 'farmer' &&
+                    (
+                        assignedDevice === null ||
+                        assignedDevice === ''
+                    ) &&
+                    !result.data
+                ) {
+
+                    nodeWarning.style.display =
+                        'block';
+
+                } else {
+
+                    nodeWarning.style.display =
+                        'none';
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | API STATUS
             |--------------------------------------------------------------------------
             */
 
@@ -1813,6 +2021,7 @@ $npkNoResponse = (
                     (
                         result.assigned_device ??
                         result.matched_device ??
+                        result.data?.device_id ??
                         'N/A'
                     );
             }
@@ -1820,37 +2029,16 @@ $npkNoResponse = (
 
             /*
             |--------------------------------------------------------------------------
-            | VALIDATE API
+            | UPDATE LIVE CARDS
             |--------------------------------------------------------------------------
             */
 
-            if (
-                result.status !== 'success' ||
-                !result.data
-            ) {
+            if (result.data) {
 
-                if (apiStatus) {
-
-                    apiStatus.style.color =
-                        '#dc3545';
-
-                    apiStatus.innerText =
-                        'API returned no telemetry data.';
-                }
-
-                return;
+                updateLiveCards(
+                    result.data
+                );
             }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | UPDATE CARDS
-            |--------------------------------------------------------------------------
-            */
-
-            updateLiveCards(
-                result.data
-            );
 
 
             /*
@@ -1866,21 +2054,16 @@ $npkNoResponse = (
 
             /*
             |--------------------------------------------------------------------------
-            | MOST IMPORTANT PART
-            |--------------------------------------------------------------------------
-            |
-            | Always render recent_logs.
-            |
-            | No ID comparison.
-            | No "new reading" condition.
-            |
+            | ALWAYS RENDER HISTORY ON PAGE 1
             |--------------------------------------------------------------------------
             */
 
             if (currentPage === 1) {
 
                 renderHistory(
-                    result.recent_logs
+                    Array.isArray(result.recent_logs)
+                        ? result.recent_logs
+                        : []
                 );
             }
 
@@ -1910,7 +2093,7 @@ $npkNoResponse = (
 
     /*
     |--------------------------------------------------------------------------
-    | FIRST LOAD
+    | START
     |--------------------------------------------------------------------------
     */
 
