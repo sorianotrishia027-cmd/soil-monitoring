@@ -501,6 +501,9 @@ $displayName = htmlspecialchars($currentUser['username'] ?? 'admin', ENT_QUOTES,
     </div>
 </aside>
 
+<!-- MOBILE BACKDROP OVERLAY -->
+<div id="sidebarBackdrop" class="sidebar-backdrop-overlay" onclick="toggleMobileSidebar()"></div>
+
 <!-- =========================================================
      MAIN CONTENT CANVAS
 ========================================================== -->
@@ -508,9 +511,18 @@ $displayName = htmlspecialchars($currentUser['username'] ?? 'admin', ENT_QUOTES,
 
     <!-- TOP HEADER -->
     <header class="dashboard-canvas-header">
-        <div class="page-title-group">
-            <h1><?= htmlspecialchars($currentPageInfo['title']) ?></h1>
-            <p><?= htmlspecialchars($currentPageInfo['subtitle']) ?></p>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button type="button" class="mobile-nav-toggle-btn" onclick="toggleMobileSidebar()" aria-label="Toggle navigation">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <div class="page-title-group">
+                <h1><?= htmlspecialchars($currentPageInfo['title']) ?></h1>
+                <p><?= htmlspecialchars($currentPageInfo['subtitle']) ?></p>
+            </div>
         </div>
 
         <div class="header-user-profile">
@@ -697,6 +709,14 @@ $displayName = htmlspecialchars($currentUser['username'] ?? 'admin', ENT_QUOTES,
 ============================================================= -->
 
 <script src="js/script.js"></script>
+<script>
+function toggleMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar-nav-panel');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sidebar) sidebar.classList.toggle('mobile-open');
+    if (backdrop) backdrop.classList.toggle('mobile-open');
+}
+</script>
 
 </body>
 </html>

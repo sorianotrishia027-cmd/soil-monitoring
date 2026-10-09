@@ -978,9 +978,25 @@ body {
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN
+   RESPONSIVE DESIGN (Tablets & Mobile Phones)
    ========================================================================== */
-@media (max-width: 1080px) {
+.mobile-nav-toggle-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-heading);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-nav-toggle-btn:hover {
+    background-color: #e5ede7;
+}
+
+@media (max-width: 1024px) {
     .overview-stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -990,29 +1006,114 @@ body {
     .criteria-columns-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    .main-dashboard-canvas {
+        padding: 24px 20px;
+    }
 }
 
 @media (max-width: 768px) {
+    .mobile-nav-toggle-btn {
+        display: flex;
+    }
+
     .dashboard-layout-wrapper {
         flex-direction: column;
     }
+
     .sidebar-nav-panel {
         width: 100%;
         min-width: 100%;
         height: auto;
-        position: relative;
+        position: fixed;
+        top: 0;
+        left: -100%;
+        bottom: 0;
+        z-index: 9999;
+        transition: left 0.3s ease-in-out;
+        overflow-y: auto;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.25);
     }
+
+    .sidebar-nav-panel.mobile-open {
+        left: 0;
+    }
+
+    .sidebar-backdrop-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 9998;
+    }
+
+    .sidebar-backdrop-overlay.mobile-open {
+        display: block;
+    }
+
+    .main-dashboard-canvas {
+        padding: 16px 12px 30px;
+    }
+
+    .dashboard-canvas-header {
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .page-title-group h1,
+    .page-title-group h2 {
+        font-size: 22px;
+    }
+
+    .page-title-group p {
+        font-size: 12.5px;
+    }
+
     .overview-stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
     }
+
+    .stat-widget-card {
+        padding: 14px;
+        min-height: 100px;
+    }
+
+    .stat-big-value {
+        font-size: 24px;
+    }
+
+    .stat-time-value {
+        font-size: 17px;
+    }
+
+    .nutrients-columns-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
     .six-parameter-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
+
     .two-column-split-grid,
     .insights-dashboard-split-row {
         grid-template-columns: 1fr;
+        gap: 14px;
     }
-    .main-dashboard-canvas {
-        padding: 20px 16px;
+
+    .criteria-columns-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .radio-cards-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .overview-stats-grid {
+        grid-template-columns: 1fr;
     }
 }
