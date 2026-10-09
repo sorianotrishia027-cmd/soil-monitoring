@@ -774,6 +774,16 @@ body {
 .bullet-dot.orange { background-color: #ea580c; }
 .bullet-dot.neutral { background-color: #9ca3af; }
 
+/* Trend Charts Grid */
+.trends-charts-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+.trend-card-span-mobile {
+    grid-column: auto;
+}
+
 /* ==========================================================================
    FORMS & INPUTS
    ========================================================================== */
@@ -1011,6 +1021,17 @@ body {
     }
 }
 
+@media (max-width: 900px) {
+    .trends-charts-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .trend-card-span-mobile {
+        grid-column: 1 / -1 !important; /* Bababa sa ilalim ang Temperature at Potassium */
+    }
+}
+
 @media (max-width: 768px) {
     .mobile-nav-toggle-btn {
         display: flex;
@@ -1110,10 +1131,28 @@ body {
     .radio-cards-container {
         grid-template-columns: 1fr;
     }
+
+    .trends-charts-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .trend-card-span-mobile {
+        grid-column: 1 / -1 !important; /* Bababa sa ilalim ang Temperature at Potassium */
+    }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 580px) {
     .overview-stats-grid {
         grid-template-columns: 1fr;
+    }
+
+    .trends-charts-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .trend-card-span-mobile {
+        grid-column: auto !important;
     }
 }

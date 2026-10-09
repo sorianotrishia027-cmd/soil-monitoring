@@ -502,7 +502,7 @@ if ($latest && isset($latest['created_at'])) {
         </div>
 
         <!-- Soil Physical Parameters (Row 1) -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 15px;">
+        <div class="trends-charts-row" style="margin-top: 15px;">
             
             <!-- Moisture Trend -->
             <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
@@ -527,7 +527,7 @@ if ($latest && isset($latest['created_at'])) {
             </div>
 
             <!-- Temperature Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
+            <div class="trend-card-span-mobile" style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
                 <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
                     <span>Temperature trend</span>
                     <span style="color:#6b7280; font-weight:500;">°C</span>
@@ -539,7 +539,7 @@ if ($latest && isset($latest['created_at'])) {
         </div>
 
         <!-- Soil NPK Nutrients Trends (Row 2) -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px;">
+        <div class="trends-charts-row" style="margin-top: 16px;">
             
             <!-- Nitrogen (N) Trend -->
             <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
@@ -564,7 +564,7 @@ if ($latest && isset($latest['created_at'])) {
             </div>
 
             <!-- Potassium (K) Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
+            <div class="trend-card-span-mobile" style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
                 <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
                     <span>Potassium (K) trend</span>
                     <span style="color:#6b7280; font-weight:500;">mg/kg</span>
