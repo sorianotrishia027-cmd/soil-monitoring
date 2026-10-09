@@ -165,21 +165,46 @@ try {
 }
 
 // Parameter status styling helper
-function getMetricBadge($val, $min, $max, $isNutrient = false) {
-    if ($val === null) {
-        return ['class' => 'neutral', 'label' => 'No Data'];
-    }
-    if ($isNutrient) {
-        return ['class' => 'neutral', 'label' => 'Unverified'];
+function getMetricBadge($type, $val) {
+    if ($val === null || $val === '') {
+        return ['class' => 'neutral', 'label' => 'No Data', 'color' => '#6b7280'];
     }
     $f = floatval($val);
-    if ($f < $min) {
-        return ['class' => 'critical', 'label' => 'Critical (Low)'];
-    } elseif ($f > $max) {
-        return ['class' => 'warning', 'label' => 'Warning (High)'];
-    } else {
-        return ['class' => 'optimal', 'label' => 'Optimal'];
+    switch ($type) {
+        case 'moisture':
+            if ($f < 30) return ['class' => 'critical', 'label' => 'Critical (Low)', 'color' => '#dc2626'];
+            if ($f > 60) return ['class' => 'warning', 'label' => 'High (Wet)', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
+            
+        case 'ph':
+            if ($f < 5.0) return ['class' => 'critical', 'label' => 'Acidic (Low)', 'color' => '#dc2626'];
+            if ($f > 7.5) return ['class' => 'warning', 'label' => 'Alkaline (High)', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
+            
+        case 'temperature':
+            if ($f < 20) return ['class' => 'critical', 'label' => 'Cool (Low)', 'color' => '#dc2626'];
+            if ($f > 32) return ['class' => 'warning', 'label' => 'Heat Stress', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
+
+        case 'n':
+        case 'nitrogen':
+            if ($f < 20) return ['class' => 'critical', 'label' => 'Low', 'color' => '#dc2626'];
+            if ($f > 50) return ['class' => 'warning', 'label' => 'High', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
+
+        case 'p':
+        case 'phosphorus':
+            if ($f < 10) return ['class' => 'critical', 'label' => 'Low', 'color' => '#dc2626'];
+            if ($f > 30) return ['class' => 'warning', 'label' => 'High', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
+
+        case 'k':
+        case 'potassium':
+            if ($f < 15) return ['class' => 'critical', 'label' => 'Low', 'color' => '#dc2626'];
+            if ($f > 50) return ['class' => 'warning', 'label' => 'High', 'color' => '#ea580c'];
+            return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
     }
+    return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
 }
 
 $valMoisture = $latest['moisture'] ?? 0.0;
@@ -189,12 +214,12 @@ $valN = $latest['nitrogen'] ?? 46;
 $valP = $latest['phosphorus'] ?? 24;
 $valK = $latest['potassium'] ?? 74;
 
-$mBadge = getMetricBadge($valMoisture, 30, 60);
-$phBadge = getMetricBadge($valPh, 5.0, 7.5);
-$tBadge = getMetricBadge($valTemp, 20, 32);
-$nBadge = getMetricBadge($valN, 20, 50, true);
-$pBadge = getMetricBadge($valP, 10, 30, true);
-$kBadge = getMetricBadge($valK, 15, 50, true);
+$mBadge = getMetricBadge('moisture', $valMoisture);
+$phBadge = getMetricBadge('ph', $valPh);
+$tBadge = getMetricBadge('temperature', $valTemp);
+$nBadge = getMetricBadge('nitrogen', $valN);
+$pBadge = getMetricBadge('phosphorus', $valP);
+$kBadge = getMetricBadge('potassium', $valK);
 
 $readingFormatted = ($latest && isset($latest['created_at']))
     ? date('M j, Y · g:i A', strtotime($latest['created_at']))
@@ -344,9 +369,9 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
             <div class="criteria-col">
                 <h4>Nutrients (N-P-K)</h4>
                 <ul class="criteria-list">
-                    <li class="criteria-item"><span class="bullet-dot neutral"></span> N: 20–50 mg/kg</li>
-                    <li class="criteria-item"><span class="bullet-dot neutral"></span> P: 10–30 mg/kg</li>
-                    <li class="criteria-item"><span class="bullet-dot neutral"></span> K: 15–50 mg/kg</li>
+                    <li class="criteria-item"><span class="bullet-dot red"></span> Low: N&lt;20, P&lt;10, K&lt;15</li>
+                    <li class="criteria-item"><span class="bullet-dot green"></span> Optimal: N:20-50, P:10-30, K:15-50</li>
+                    <li class="criteria-item"><span class="bullet-dot orange"></span> Excess: N&gt;50, P&gt;30, K&gt;50</li>
                 </ul>
             </div>
         </div>
@@ -359,7 +384,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
         <div class="table-header-flex">
             <div>
                 <div class="card-title" style="font-size: 16px;">Recent Telemetry History Logs</div>
-                <div class="card-subtitle">Automatic records logged from field sensors.</div>
+                <div class="card-subtitle">Automatic records logged from field sensors with status indicators.</div>
             </div>
             <div style="font-size: 13px; font-weight: 600; color: var(--text-muted);">
                 Page <?= $page ?> of <?= $totalPages ?> (Total: <?= number_format($totalRows) ?>)
@@ -381,15 +406,52 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 </thead>
                 <tbody>
                     <?php if (!empty($historyLogs)): ?>
-                        <?php foreach ($historyLogs as $row): ?>
+                        <?php foreach ($historyLogs as $row): 
+                            $rM = getMetricBadge('moisture', $row['moisture'] ?? null);
+                            $rPh = getMetricBadge('ph', $row['ph'] ?? null);
+                            $rN = getMetricBadge('nitrogen', $row['nitrogen'] ?? null);
+                            $rP = getMetricBadge('phosphorus', $row['phosphorus'] ?? null);
+                            $rK = getMetricBadge('potassium', $row['potassium'] ?? null);
+                            $rT = getMetricBadge('temperature', $row['temperature'] ?? null);
+                        ?>
                             <tr>
-                                <td><?= htmlspecialchars($row['created_at'] ?? '---') ?></td>
-                                <td><strong><?= isset($row['moisture']) ? number_format((float)$row['moisture'], 1) . '%' : '---' ?></strong></td>
-                                <td><?= isset($row['ph']) ? number_format((float)$row['ph'], 1) : '---' ?></td>
-                                <td><?= htmlspecialchars($row['nitrogen'] ?? '---') ?> mg/kg</td>
-                                <td><?= htmlspecialchars($row['phosphorus'] ?? '---') ?> mg/kg</td>
-                                <td><?= htmlspecialchars($row['potassium'] ?? '---') ?> mg/kg</td>
-                                <td><?= isset($row['temperature']) ? number_format((float)$row['temperature'], 1) . '°C' : '---' ?></td>
+                                <td style="color: #6b7280;"><?= htmlspecialchars($row['created_at'] ?? '---') ?></td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:<?= $rM['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rM['color'] ?>;"></span>
+                                        <?= isset($row['moisture']) ? number_format((float)$row['moisture'], 1) . '%' : '---' ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:<?= $rPh['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rPh['color'] ?>;"></span>
+                                        <?= isset($row['ph']) ? number_format((float)$row['ph'], 1) : '---' ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; color:<?= $rN['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rN['color'] ?>;"></span>
+                                        <?= htmlspecialchars((string)($row['nitrogen'] ?? '---')) ?> mg/kg
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; color:<?= $rP['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rP['color'] ?>;"></span>
+                                        <?= htmlspecialchars((string)($row['phosphorus'] ?? '---')) ?> mg/kg
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; color:<?= $rK['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rK['color'] ?>;"></span>
+                                        <?= htmlspecialchars((string)($row['potassium'] ?? '---')) ?> mg/kg
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; color:<?= $rT['color'] ?>;">
+                                        <span class="bullet-dot" style="background-color:<?= $rT['color'] ?>;"></span>
+                                        <?= isset($row['temperature']) ? number_format((float)$row['temperature'], 1) . '°C' : '---' ?>
+                                    </span>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
