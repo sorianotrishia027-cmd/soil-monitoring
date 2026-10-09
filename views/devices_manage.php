@@ -3,14 +3,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Ensure database connection
 if (!isset($conn)) {
     require_once __DIR__ . '/../config/db_connect.php';
 }
 
-// Enforce admin-only access clearance
 if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
-    echo "<p class='error' style='padding:15px; color:#dc3545;'>⛔ Access Denied. Administrative clearance required.</p>";
+    echo "<p class='alert danger'>Access Denied. Administrative clearance required.</p>";
     exit;
 }
 
@@ -23,20 +21,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
 
     if ($farmer_id > 0 && !empty($new_label)) {
         try {
-            // Inserts a baseline telemetry row to bind this device label to the farmer
-            $stmt = $conn->prepare("INSERT INTO sensor_data (user_id, device_label, moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status) 
-                                    VALUES (?, ?, 45.0, 6.2, 26.0, 35, 22, 30, 'OPTIMAL')");
+            $stmt = $conn->prepare("
+                INSERT INTO sensor_data (user_id, device_label, moisture, ph_level, temperature, nitrogen, phosphorus, potassium, status) 
+                VALUES (?, ?, 45.0, 6.2, 26.0, 35, 22, 30, 'OPTIMAL')
+            ");
             $stmt->execute([$farmer_id, $new_label]);
-            $msg = "<div class='alert success' style='background:#e8f5e9; color:#2e7d32; padding:12px 16px; border-radius:8px; margin-bottom:20px;'>✅ Successfully mapped tracking identifier '<strong>" . htmlspecialchars($new_label) . "</strong>' to the selected farmer profile.</div>";
+            $msg = "<div class='alert success'>Successfully mapped tracking identifier '<strong>" . htmlspecialchars($new_label) . "</strong>' to the selected farmer profile.</div>";
         } catch (PDOException $e) {
-            $msg = "<div class='alert danger' style='background:#ffebee; color:#c62828; padding:12px 16px; border-radius:8px; margin-bottom:20px;'>❌ Mapping update failed: " . htmlspecialchars($e->getMessage()) . "</div>";
+            $msg = "<div class='alert danger'>Mapping update failed: " . htmlspecialchars($e->getMessage()) . "</div>";
         }
     } else {
-        $msg = "<div class='alert warning' style='background:#fff8e1; color:#f57f17; padding:12px 16px; border-radius:8px; margin-bottom:20px;'>⚠️ Please select a farmer and enter a valid device label string.</div>";
+        $msg = "<div class='alert warning'>Please select a farmer and enter a valid device label string.</div>";
     }
 }
 
-// Fixed Query: Fetch latest mapped device label for each farmer without relying on s.created_at
+// Fetch latest mapped device label for each farmer
 $assignments_query = "
     SELECT 
         u.id AS user_id, 
@@ -60,102 +59,152 @@ try {
     $field_mappings = $conn->query($assignments_query)->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $field_mappings = [];
-    $msg = "<div class='alert danger' style='background:#ffebee; color:#c62828; padding:12px 16px; border-radius:8px; margin-bottom:20px;'>❌ Query Error: " . htmlspecialchars($e->getMessage()) . "</div>";
+    $msg = "<div class='alert danger'>Query Error: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
 ?>
 
-<div class="sub-view-panel-container" style="padding: 10px;">
-    <div class="view-panel-header" style="margin-bottom: 20px;">
-        <h3 style="margin: 0; color: #1a252c;">IoT Virtual Node Assignment Matrix</h3>
-        <p style="margin: 4px 0 0; color: #6c757d; font-size: 14px;">Assign hardware node labels directly to farmers to stream dynamic telemetry logs into their dashboards.</p>
+<div class="sub-view-panel-container">
+
+    <div class="view-panel-header">
+        <h3>IoT Virtual Node Assignment Matrix</h3>
+        <p>Assign hardware node labels directly to farmers to stream dynamic telemetry logs into their dashboards.</p>
     </div>
 
     <?= $msg ?>
 
-    <div class="insights-dashboard-split-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <!-- =========================================================
+         2-COLUMN SPLIT: BIND NODE IDENTIFIER & HARDWARE ARCHITECTURE (Matches Images 1 & 2)
+         ========================================================= -->
+    <div class="insights-dashboard-split-row">
         
-        <!-- Action Card: Bind Node -->
-        <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 style="margin-top: 0; margin-bottom: 15px; color: #198754;">🔗 Bind Node Identifier</h3>
+        <!-- Bind Node Identifier Card -->
+        <div class="card-panel">
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Bind Node Identifier
+            </h3>
+
             <form action="dashboard.php?page=devices_manage" method="POST">
                 <input type="hidden" name="action" value="assign_label">
-                
-                <label style="display:block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #495057;">Select Target Farmer:</label>
-                <div class="input-wrapper" style="background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 4px 10px; margin-bottom: 15px;">
-                    <select name="user_id" style="width:100%; background:transparent; border:none; padding:8px 0; outline:none; font-size:14px; color:#212529;" required>
-                        <option value="">-- Choose Account --</option>
-                        <?php foreach ($field_mappings as $row): ?>
-                            <option value="<?= $row['user_id'] ?>">
-                                <?= htmlspecialchars($row['username']) ?> (<?= htmlspecialchars($row['fullname'] ?: 'No Name') ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+
+                <div class="form-group">
+                    <label class="form-label">Select Target Farmer:</label>
+                    <div class="input-field-wrapper">
+                        <select name="user_id" required>
+                            <option value="">-- Choose Account --</option>
+                            <?php foreach ($field_mappings as $row): ?>
+                                <option value="<?= $row['user_id'] ?>">
+                                    <?= htmlspecialchars($row['username']) ?> (<?= htmlspecialchars($row['fullname'] ?: 'No Name') ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
 
-                <label style="display:block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #495057;">Virtual Device UID Label:</label>
-                <div class="input-wrapper" style="background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 8px 12px; margin-bottom: 18px;">
-                    <input type="text" name="device_label" placeholder="e.g., ESP32-RICE-NODE-01" style="width: 100%; border: none; background: transparent; outline: none; font-size: 14px;" required>
+                <div class="form-group">
+                    <label class="form-label">Virtual Device UID Label:</label>
+                    <div class="input-field-wrapper">
+                        <input type="text" name="device_label" placeholder="e.g., ESP32-RICE-NODE-01" required>
+                    </div>
                 </div>
 
-                <button type="submit" style="width: 100%; background: #198754; color: #ffffff; border: none; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <button type="submit" class="btn-primary" style="margin-top: 8px;">
                     Deploy Assignment
                 </button>
             </form>
         </div>
 
-        <!-- Info Card: Architecture -->
-        <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <!-- Hardware Linkage Architecture Card -->
+        <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <h3 style="margin-top: 0; margin-bottom: 10px; color: #212529;">Hardware Linkage Architecture</h3>
-                <p style="font-size: 14px; line-height: 1.5; color: #6c757d;">
-                    By storing the device identifier inside history logs, telemetry data dynamically maps to the farmer’s account for real-time dashboard display.
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;">
+                    Hardware Linkage Architecture
+                </h3>
+                <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-muted);">
+                    By storing the device identifier inside history logs, telemetry data dynamically maps to the farmer's account for real-time dashboard display.
                 </p>
             </div>
-            <div style="border-left: 4px solid #198754; background: #f8f9fa; padding: 12px; border-radius: 0 8px 8px 0; margin-top: 15px;">
-                <span style="font-size: 11px; font-weight: 700; color: #6c757d; text-transform: uppercase;">DATABASE MAPPING</span>
-                <p style="font-weight: bold; font-size: 13px; margin: 4px 0 0; color: #212529;">Active Structure: <code>users</code> ➔ <code>sensor_data</code></p>
+
+            <div class="directive-highlight-box">
+                <div class="directive-muted-tag">DATABASE MAPPING</div>
+                <div class="directive-metric-val">
+                    Active Structure: <code style="background:#e8f4ec; color:#143d2c; padding:2px 6px; border-radius:4px; font-size:12.5px;">users</code> ➔ <code style="background:#e8f4ec; color:#143d2c; padding:2px 6px; border-radius:4px; font-size:12.5px;">sensor_data</code>
+                </div>
             </div>
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         FIELD NODE LINKAGE MAPS TABLE (Matches Images 1 & 2)
+         ========================================================= -->
+    <div class="table-container-card">
+        <div class="table-header-flex">
+            <div>
+                <div class="card-title" style="font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    Field Node Linkage Maps
+                </div>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="custom-data-table">
+                <thead>
+                    <tr>
+                        <th>Farmer Account</th>
+                        <th>Full Name</th>
+                        <th>Assigned Node ID</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($field_mappings)): ?>
+                        <?php foreach ($field_mappings as $row): ?>
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-heading);">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-color);">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                            <circle cx="12" cy="7" r="4"/>
+                                        </svg>
+                                        <span><?= htmlspecialchars($row['username']) ?></span>
+                                    </div>
+                                </td>
+                                <td><?= htmlspecialchars($row['fullname'] ?: '---') ?></td>
+                                <td>
+                                    <?php if (!empty($row['device_label'])): ?>
+                                        <code style="background:#edf3ef; color:#143d2c; padding:3px 8px; border-radius:4px; font-weight:600; font-size:12.5px;">
+                                            <?= htmlspecialchars($row['device_label']) ?>
+                                        </code>
+                                    <?php else: ?>
+                                        <span style="color: #9ca3af; font-style: italic; font-size: 13px;">No Node Configured</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge-pill <?= !empty($row['device_label']) ? 'optimal' : 'neutral' ?>" style="font-size: 11px;">
+                                        <?= !empty($row['device_label']) ? 'Active Node' : 'Idle' ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #9ca3af; padding: 24px;">No farmer profiles currently found.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Section Header -->
-    <div class="view-panel-header" style="margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #1a252c;">📋 Field Node Linkage Maps</h3>
-    </div>
-
-    <!-- Data Table -->
-    <div class="history-table-wrapper" style="overflow-x: auto; background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #ccd4cc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
-            <thead>
-                <tr style="border-bottom: 2px solid #e2e8e2; color: #495057; background: #f8f9fa;">
-                    <th style="padding: 12px;">Farmer Account</th>
-                    <th style="padding: 12px;">Full Name</th>
-                    <th style="padding: 12px;">Assigned Node ID</th>
-                    <th style="padding: 12px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($field_mappings)): ?>
-                    <?php foreach ($field_mappings as $row): ?>
-                        <tr style="border-bottom: 1px solid #f0f4f0;">
-                            <td style="padding: 12px; font-weight: bold; color: #198754;">👤 <?= htmlspecialchars($row['username']) ?></td>
-                            <td style="padding: 12px;"><?= htmlspecialchars($row['fullname'] ?: '---') ?></td>
-                            <td style="padding: 12px;">
-                                <code><?= $row['device_label'] ? htmlspecialchars($row['device_label']) : '<span style="color:#999; font-style:italic;">No Node Configured</span>' ?></code>
-                            </td>
-                            <td style="padding: 12px;">
-                                <span style="padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 12px; <?= $row['device_label'] ? 'background:#e8f5e9; color:#2e7d32;' : 'background:#f5f5f5; color:#777;' ?>">
-                                    <?= $row['device_label'] ? 'Active Node' : 'Idle' ?>
-                                </span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="4" style="padding: 20px; text-align: center; color: #6c757d;">No registered farmer accounts found in the database.</td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
 </div>

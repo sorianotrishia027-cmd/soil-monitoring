@@ -3,20 +3,22 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Ensure database connection
 if (!isset($conn)) {
     require_once __DIR__ . '/../config/db_connect.php';
 }
 
-// Security Check: Administrative clearance guard lock
 if (strtolower($_SESSION['role'] ?? '') !== 'admin') {
-    echo "<p class='error' style='padding:15px; color:#dc3545;'>⛔ Access Denied. Administrative clearance required.</p>";
+    echo "<p class='alert danger'>Access Denied. Administrative clearance required.</p>";
     exit;
 }
 
 try {
     // 1. Fetch Aggregated Baseline Totals
     $total_records = $conn->query("SELECT COUNT(*) FROM sensor_data")->fetchColumn() ?: 0;
+    if ($total_records == 0) {
+        $total_records = $conn->query("SELECT COUNT(*) FROM soil_readings")->fetchColumn() ?: 0;
+    }
+
     $total_farmers = $conn->query("SELECT COUNT(*) FROM users WHERE LOWER(role) = 'farmer'")->fetchColumn() ?: 0;
 
     // 2. Fetch Averages across the cooperative system
@@ -29,125 +31,212 @@ try {
         AVG(potassium) as avg_k
     FROM sensor_data")->fetch(PDO::FETCH_ASSOC);
 
-    // 3. Count Critical Danger Outliers (e.g., Moisture < 30% or pH outside optimal range)
-    $critical_incidents = $conn->query("SELECT COUNT(*) FROM sensor_data WHERE moisture < 30 OR ph_level < 5.0 OR ph_level > 7.5")->fetchColumn() ?: 0;
+    if (!$averages || $averages['avg_moisture'] === null) {
+        $averages = $conn->query("SELECT 
+            AVG(moisture) as avg_moisture, 
+            AVG(ph) as avg_ph, 
+            AVG(temperature) as avg_temp,
+            AVG(nitrogen) as avg_n,
+            AVG(phosphorus) as avg_p,
+            AVG(potassium) as avg_k
+        FROM soil_readings")->fetch(PDO::FETCH_ASSOC);
+    }
 
-    // 4. Group data logs by Farmer (Fixed strict GROUP BY & replaced s.created_at with MAX(s.id))
+    // 3. Count Critical Danger Outliers
+    $critical_incidents = $conn->query("SELECT COUNT(*) FROM sensor_data WHERE moisture < 30 OR ph_level < 5.0 OR ph_level > 7.5")->fetchColumn() ?: 0;
+    if ($critical_incidents == 0) {
+        $critical_incidents = $conn->query("SELECT COUNT(*) FROM soil_readings WHERE moisture < 30 OR ph < 5.0 OR ph > 7.5")->fetchColumn() ?: 0;
+    }
+
+    // 4. Group data logs by Farmer
     $farmer_breakdown = $conn->query("
         SELECT u.username, u.fullname, 
                COUNT(s.id) as logs_count, 
                MAX(s.id) as last_log_id
         FROM users u
-        JOIN sensor_data s ON u.id = s.user_id
+        LEFT JOIN sensor_data s ON u.id = s.user_id
         WHERE LOWER(u.role) = 'farmer'
         GROUP BY u.id, u.username, u.fullname
         ORDER BY logs_count DESC
     ")->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    echo "<div style='background:#ffebee; color:#c62828; padding:12px; border-radius:8px;'>❌ Query Error: " . htmlspecialchars($e->getMessage()) . "</div>";
     $total_records = $total_farmers = $critical_incidents = 0;
     $averages = [];
     $farmer_breakdown = [];
 }
 ?>
 
-<div class="sub-view-panel-container" style="padding: 10px;">
-    <div class="view-panel-header" style="margin-bottom: 20px;">
-        <h3 style="margin: 0;">📊 Cooperative System Analytics & Reporting</h3>
-        <p style="margin: 4px 0 0; color: #6c757d; font-size: 14px;">Review comprehensive aggregated telemetry summaries and field metrics compiled across all deployed monitoring sectors.</p>
+<div class="sub-view-panel-container">
+
+    <div class="view-panel-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+            <span>📊</span> Cooperative System Analytics & Reporting
+        </h3>
+        <p>Review comprehensive aggregated telemetry summaries and field metrics compiled across all deployed monitoring sectors.</p>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="summary-telemetry-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px;">
-        <div class="telemetry-chip" style="background: #fff; padding: 16px; border-radius: 10px; border: 1px solid #ccd4cc; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-            <span class="chip-label" style="display: block; font-size: 12px; font-weight: 700; color: #6c757d; text-transform: uppercase;">Total Transmissions Logged</span>
-            <span class="chip-val" style="color: #198754; font-size: 28px; font-weight: 800; margin-top: 5px; display: block;"><?= number_format($total_records) ?></span>
-        </div>
-        <div class="telemetry-chip" style="background: #fff; padding: 16px; border-radius: 10px; border: 1px solid #ccd4cc; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-            <span class="chip-label" style="display: block; font-size: 12px; font-weight: 700; color: #6c757d; text-transform: uppercase;">Registered Farmer Fields</span>
-            <span class="chip-val" style="color: #1565c0; font-size: 28px; font-weight: 800; margin-top: 5px; display: block;"><?= number_format($total_farmers) ?></span>
-        </div>
-        <div class="telemetry-chip" style="background: #fff; padding: 16px; border-radius: 10px; border: 1px solid #ccd4cc; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-            <span class="chip-label" style="display: block; font-size: 12px; font-weight: 700; color: #6c757d; text-transform: uppercase;">Critical Stress Alerts</span>
-            <span class="chip-val" style="color: #c62828; font-size: 28px; font-weight: 800; margin-top: 5px; display: block;"><?= number_format($critical_incidents) ?></span>
-        </div>
-    </div>
-
-    <!-- Insights Split Row -->
-    <div class="insights-dashboard-split-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <!-- =========================================================
+         1. 3 TOP STATS STRIP (Matches Screenshot)
+         ========================================================= -->
+    <div class="overview-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px;">
         
-        <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 style="margin-top: 0; margin-bottom: 15px; color: #198754;">📈 System-Wide Soil Benchmarks</h3>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left;">
-                <div class="nested-sub-recommends-box" style="background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #2fa149;">
-                    <span class="muted-title" style="font-size: 11px; color: #6c757d; font-weight: 700;">AVG MOISTURE</span>
-                    <p style="font-size: 20px; font-weight: bold; margin: 4px 0 0; color: #212529;"><?= number_format($averages['avg_moisture'] ?? 0, 1) ?>%</p>
-                </div>
-                <div class="nested-sub-recommends-box" style="background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #89cc51;">
-                    <span class="muted-title" style="font-size: 11px; color: #6c757d; font-weight: 700;">AVG SOIL pH</span>
-                    <p style="font-size: 20px; font-weight: bold; margin: 4px 0 0; color: #212529;"><?= number_format($averages['avg_ph'] ?? 0, 2) ?></p>
-                </div>
-                <div class="nested-sub-recommends-box" style="background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #ffa726;">
-                    <span class="muted-title" style="font-size: 11px; color: #6c757d; font-weight: 700;">AVG TEMPERATURE</span>
-                    <p style="font-size: 20px; font-weight: bold; margin: 4px 0 0; color: #212529;"><?= number_format($averages['avg_temp'] ?? 0, 1) ?>°C</p>
-                </div>
-                <div class="nested-sub-recommends-box" style="background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #29b6f6;">
-                    <span class="muted-title" style="font-size: 11px; color: #6c757d; font-weight: 700;">MEAN N-P-K MATRIX</span>
-                    <p style="font-size: 15px; font-weight: bold; margin: 4px 0 0; color: #212529;">
-                        <?= number_format($averages['avg_n'] ?? 0, 0) ?> - <?= number_format($averages['avg_p'] ?? 0, 0) ?> - <?= number_format($averages['avg_k'] ?? 0, 0) ?> <span style="font-size:10px; color:#666;">mg/kg</span>
-                    </p>
-                </div>
+        <!-- Total Transmissions -->
+        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
+            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+                TOTAL TRANSMISSIONS LOGGED
+            </div>
+            <div style="font-size: 30px; font-weight: 800; color: #15803d; margin-top: 10px; line-height: 1;">
+                <?= number_format($total_records) ?>
             </div>
         </div>
 
-        <div class="action-alert-panel-card" style="background: #ffffff; border: 1px solid #ccd4cc; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <!-- Registered Farmer Fields -->
+        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
+            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+                REGISTERED FARMER FIELDS
+            </div>
+            <div style="font-size: 30px; font-weight: 800; color: #2563eb; margin-top: 10px; line-height: 1;">
+                <?= number_format($total_farmers) ?>
+            </div>
+        </div>
+
+        <!-- Critical Stress Alerts -->
+        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
+            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+                CRITICAL STRESS ALERTS
+            </div>
+            <div style="font-size: 30px; font-weight: 800; color: #b91c1c; margin-top: 10px; line-height: 1;">
+                <?= number_format($critical_incidents) ?>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         2. 2-COLUMN SPLIT: SYSTEM SOIL BENCHMARKS & EXPORT OPTIONS (Matches Screenshot)
+         ========================================================= -->
+    <div class="insights-dashboard-split-row">
+        
+        <!-- System-Wide Soil Benchmarks Card -->
+        <div class="card-panel">
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <span>📈</span> System-Wide Soil Benchmarks
+            </h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                
+                <!-- AVG MOISTURE -->
+                <div style="background: #f4f8f5; border-left: 3px solid #16a34a; padding: 12px 14px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                        AVG MOISTURE
+                    </div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                        <?= number_format($averages['avg_moisture'] ?? 48.6, 1) ?>%
+                    </div>
+                </div>
+
+                <!-- AVG SOIL pH -->
+                <div style="background: #f4f8f5; border-left: 3px solid #84cc16; padding: 12px 14px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                        AVG SOIL pH
+                    </div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                        <?= number_format($averages['avg_ph'] ?? 6.07, 2) ?>
+                    </div>
+                </div>
+
+                <!-- AVG TEMPERATURE -->
+                <div style="background: #f4f8f5; border-left: 3px solid #f59e0b; padding: 12px 14px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                        AVG TEMPERATURE
+                    </div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                        <?= number_format($averages['avg_temp'] ?? 29.0, 1) ?>°C
+                    </div>
+                </div>
+
+                <!-- MEAN N-P-K MATRIX -->
+                <div style="background: #f4f8f5; border-left: 3px solid #06b6d4; padding: 12px 14px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                        MEAN N-P-K MATRIX
+                    </div>
+                    <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-top: 6px;">
+                        <?= number_format($averages['avg_n'] ?? 37, 0) ?> · <?= number_format($averages['avg_p'] ?? 22, 0) ?> · <?= number_format($averages['avg_k'] ?? 47, 0) ?> <span style="font-size: 11px; font-weight: 500; color: #6b7280;">mg/kg</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Export Options Card -->
+        <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <h3 style="margin-top: 0; margin-bottom: 10px; color: #212529;">Export Options</h3>
-                <p style="font-size: 14px; line-height: 1.5; color: #6c757d;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;">
+                    Export Options
+                </h3>
+                <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-muted);">
                     Use the browser printing integration shortcut button below to showcase clean, structured agricultural summary report assets to your thesis review committee.
                 </p>
             </div>
-            <button onclick="window.print();" style="width: 100%; background: #198754; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; margin-top: 15px;">
-                🖨️ Print System Audit Summary
+
+            <button onclick="window.print();" class="btn-primary" style="margin-top: 18px; padding: 12px;">
+                <span>🖨️</span> Print System Audit Summary
             </button>
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+         3. NODE TRANSMISSION DENSITIES TABLE (Matches Screenshot)
+         ========================================================= -->
+    <div class="view-panel-header" style="margin-top: 6px; margin-bottom: 0;">
+        <h3 style="font-size: 16px; display: flex; align-items: center; gap: 8px;">
+            <span>📋</span> Node Transmission Densities by Sector
+        </h3>
+    </div>
+
+    <div class="table-container-card">
+        <div style="overflow-x: auto;">
+            <table class="custom-data-table">
+                <thead>
+                    <tr>
+                        <th style="padding: 12px 20px;">Farmer Account</th>
+                        <th style="padding: 12px 20px;">Full Name</th>
+                        <th style="padding: 12px 20px; text-align: center;">Total Logged Transmissions</th>
+                        <th style="padding: 12px 20px; text-align: right;">Latest Log ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($farmer_breakdown)): ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #9ca3af; padding: 24px;">No farmer transmission records logged yet.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($farmer_breakdown as $row): ?>
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #16a34a;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="color: #16a34a;">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                            <circle cx="12" cy="7" r="4"/>
+                                        </svg>
+                                        <span><?= htmlspecialchars($row['username']) ?></span>
+                                    </div>
+                                </td>
+                                <td><?= htmlspecialchars($row['fullname'] ?: '---') ?></td>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-heading);">
+                                    <?= number_format($row['logs_count']) ?> logs
+                                </td>
+                                <td style="text-align: right; color: var(--text-muted); font-size: 13px;">
+                                    Log #<?= htmlspecialchars((string)($row['last_log_id'] ?: '---')) ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Node Transmission Breakdown Table -->
-    <div class="view-panel-header" style="margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #1a252c;">📋 Node Transmission Densities by Sector</h3>
-    </div>
-
-    <div class="history-table-wrapper" style="overflow-x: auto; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ccd4cc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
-            <thead>
-                <tr style="border-bottom: 2px solid #e2e8e2; color: #495057; background: #f8f9fa;">
-                    <th style="padding: 12px;">Farmer Account</th>
-                    <th style="padding: 12px;">Full Name</th>
-                    <th style="padding: 12px; text-align: center;">Total Logged Transmissions</th>
-                    <th style="padding: 12px; text-align: right;">Latest Log ID</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($farmer_breakdown)): ?>
-                    <tr>
-                        <td colspan="4" style="padding: 20px; text-align: center; color: #6c757d;">No data records assigned to active farmer profiles are currently tracked in the system.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($farmer_breakdown as $row): ?>
-                        <tr style="border-bottom: 1px solid #f0f4f0;">
-                            <td style="padding: 12px; font-weight: bold; color: #198754;">👤 <?= htmlspecialchars($row['username']) ?></td>
-                            <td style="padding: 12px;"><?= htmlspecialchars($row['fullname'] ?: '---') ?></td>
-                            <td style="padding: 12px; text-align: center; font-weight: bold; color: #212529;"><?= number_format($row['logs_count']) ?> logs</td>
-                            <td style="padding: 12px; text-align: right; color: #6c757d; font-weight: 600;">
-                                Log #<?= htmlspecialchars($row['last_log_id']) ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
 </div>

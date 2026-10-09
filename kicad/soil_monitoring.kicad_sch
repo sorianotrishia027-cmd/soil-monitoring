@@ -1,0 +1,173 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 91b48e3a-7db6-444f-8cf7-21a4f009e530)
+
+  (paper "A3")
+
+  (title_block
+    (title "ESP32 Sto. Cristo Soil Monitoring Node")
+    (date "2026-10-01")
+    (rev "v2.0")
+    (company "Sto. Cristo Agricultural IoT Project")
+    (comment 1 "GSM 4G LTE, NPK RS485, pH, Soil Moisture, Temp, MicroSD")
+  )
+
+  (lib_symbols
+    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -6.35 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Value" "GND" (at 0 -3.81 0) (effects (font (size 1.27 1.27))))
+      (property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type outline))
+        )
+      )
+      (symbol "GND_1_1"
+        (pin power_in line (at 0 0 270) (length 0) (name "GND" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      )
+    )
+    (symbol "power:+5V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 3.81 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Value" "+5V" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+      (property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (symbol "+5V_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54)
+            (xy 0.762 1.27)
+            (xy -0.762 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type outline))
+        )
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "+5V_1_1"
+        (pin power_in line (at 0 0 90) (length 0) (name "+5V" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      )
+    )
+    (symbol "power:+12V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 3.81 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Value" "+12V" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+      (property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (symbol "+12V_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54)
+            (xy 0.762 1.27)
+            (xy -0.762 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type outline))
+        )
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "+12V_1_1"
+        (pin power_in line (at 0 0 90) (length 0) (name "+12V" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      )
+    )
+    (symbol "power:+3V3" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 3.81 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Value" "+3V3" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+      (property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+      (symbol "+3V3_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54)
+            (xy 0.762 1.27)
+            (xy -0.762 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type outline))
+        )
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "+3V3_1_1"
+        (pin power_in line (at 0 0 90) (length 0) (name "+3V3" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+
+  (text "ESP32 SOIL MONITORING NODE SCHEMATIC" (at 210.82 25.4 0)
+    (effects (font (size 3.81 3.81) (bold yes)))
+  )
+  (text "Thesis Node - 4G LTE A7670C, RS485 NPK, pH, Soil Moisture, Temp, SD Card" (at 210.82 31.75 0)
+    (effects (font (size 2.54 2.54) (italic yes)))
+  )
+
+  (text "POWER SUPPLY SECTION (12V Battery -> LM2596 -> 5V Common Bus)" (at 60 45 0)
+    (effects (font (size 2.0 2.0) (bold yes)))
+  )
+  (text "12V Battery (+) -> LM2596 VIN+ & NPK Probe Brown Wire\n12V Battery (-) -> LM2596 VIN- & NPK Probe Black Wire\nLM2596 VOUT+ (5V) -> ESP32 5V/VIN, GSM VIN/PEN, MAX485 VCC, pH VCC\nLM2596 VOUT- (GND) -> ESP32 GND, GSM GND/PWK, MAX485 GND, Sensors GND" (at 60 55 0)
+    (effects (font (size 1.5 1.5)))
+  )
+
+  (text "MICROCONTROLLER (ESP32 DevKit V1 30-Pin)" (at 190 45 0)
+    (effects (font (size 2.0 2.0) (bold yes)))
+  )
+  (text "• GPIO 22: DS18B20 Temp (OneWire + 4.7kΩ pullup to 3.3V)\n• GPIO 35: Analog pH Sensor (pH-4502C Po)\n• GPIO 34: Analog Soil Moisture Sensor (AOUT)\n• GPIO 16: MAX485 RO (RX2)\n• GPIO 17: MAX485 DI (TX2)\n• GPIO 21: MAX485 DE & RE (Direction Control)\n• GPIO 26: GSM A7670C TXD (ESP32 RX1)\n• GPIO 27: GSM A7670C RXD (ESP32 TX1)\n• GPIO 5:  MicroSD CS\n• GPIO 18: MicroSD SCK\n• GPIO 19: MicroSD MISO\n• GPIO 23: MicroSD MOSI" (at 190 65 0)
+    (effects (font (size 1.5 1.5)))
+  )
+
+  (text "GSM A7670C 4G LTE MODULE" (at 60 110 0)
+    (effects (font (size 2.0 2.0) (bold yes)))
+  )
+  (text "• VIN: +5V (LM2596 VOUT+)\n• GND: GND (LM2596 VOUT-)\n• TXD: ESP32 GPIO 26\n• RXD: ESP32 GPIO 27\n• PEN: +5V (Auto Power-On Enabled)\n• PWK: GND (Power Key Grounded)" (at 60 120 0)
+    (effects (font (size 1.5 1.5)))
+  )
+
+  (text "MAX485 RS485 TRANSCEIVER MODULE (NPK PROBE)" (at 60 150 0)
+    (effects (font (size 2.0 2.0) (bold yes)))
+  )
+  (text "• VCC: +5V\n• GND: GND\n• RO:  ESP32 GPIO 16 (RX2)\n• DI:  ESP32 GPIO 17 (TX2)\n• DE & RE: ESP32 GPIO 21\n• A Terminal: Yellow Wire to NPK Probe\n• B Terminal: Blue Wire to NPK Probe" (at 60 160 0)
+    (effects (font (size 1.5 1.5)))
+  )
+
+  (text "ANALOG & DIGITAL SENSORS SECTION" (at 300 45 0)
+    (effects (font (size 2.0 2.0) (bold yes)))
+  )
+  (text "1. DS18B20 Waterproof Temperature Sensor:\n   - Red: +3.3V\n   - Black: GND\n   - Yellow/Blue: GPIO 22 (+ 4.7kΩ Resistor to 3.3V)\n\n2. Analog pH Sensor Module (pH-4502C):\n   - VCC: +5V\n   - GND: GND\n   - Po:   GPIO 35\n\n3. Capacitive Soil Moisture Sensor:\n   - VCC: +3.3V\n   - GND: GND\n   - AOUT: GPIO 34\n\n4. MicroSD Card Module (VSPI):\n   - VCC: +5V / +3.3V\n   - GND: GND\n   - CS:   GPIO 5\n   - SCK:  GPIO 18\n   - MISO: GPIO 19\n   - MOSI: GPIO 23" (at 300 70 0)
+    (effects (font (size 1.5 1.5)))
+  )
+)
