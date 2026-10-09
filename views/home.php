@@ -34,33 +34,26 @@ try {
 
 /*
 |--------------------------------------------------------------------------
-| GET ASSIGNED NODE FOR FARMER
+| GET ASSIGNED NODE FOR FARMER (UNIFIED WITH ESP32_GSM_01 & NODE 1)
 |--------------------------------------------------------------------------
 */
+$assigned_info = null;
+$assigned_device_id = null;
+$assigned_node_name = null;
+$assigned_aliases = [];
+
 if ($role !== 'admin' && $user_id > 0) {
-    try {
-        $deviceStmt = $conn->prepare("
-            SELECT device_label
-            FROM sensor_data
-            WHERE user_id = ?
-              AND device_label IS NOT NULL
-              AND TRIM(device_label) <> ''
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $deviceStmt->execute([$user_id]);
-        $deviceRow = $deviceStmt->fetch(PDO::FETCH_ASSOC);
-        if ($deviceRow && !empty($deviceRow['device_label'])) {
-            $assigned_device_id = trim($deviceRow['device_label']);
-        }
-    } catch (PDOException $e) {
-        $assigned_device_id = null;
+    $assigned_info = get_assigned_device_for_user($conn, $user_id);
+    if ($assigned_info) {
+        $assigned_device_id = $assigned_info['device_uid'];
+        $assigned_node_name = $assigned_info['node_name'];
+        $assigned_aliases = $assigned_info['aliases'];
     }
 }
 
 /*
 |--------------------------------------------------------------------------
-| LATEST READING
+| LATEST READING & HISTORICAL ANALYTICAL DATA
 |--------------------------------------------------------------------------
 */
 try {
@@ -72,30 +65,7 @@ try {
             LIMIT 1
         ");
         $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-    } elseif ($assigned_device_id !== null) {
-        $stmt = $conn->prepare("
-            SELECT *
-            FROM soil_readings
-            WHERE device_id = ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
-        ");
-        $stmt->execute([$assigned_device_id]);
-        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
-    } else {
-        $latest = null;
-    }
-} catch (PDOException $e) {
-    $latest = null;
-}
 
-/*
-|--------------------------------------------------------------------------
-| HISTORICAL ANALYTICAL DATA (Latest 20)
-|--------------------------------------------------------------------------
-*/
-try {
-    if ($role === 'admin') {
         $history_stmt = $conn->query("
             SELECT id, moisture, ph, temperature, nitrogen, phosphorus, potassium, created_at
             FROM soil_readings
@@ -103,20 +73,34 @@ try {
             LIMIT 20
         ");
         $history_records = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
-    } elseif ($assigned_device_id !== null) {
+    } elseif (!empty($assigned_aliases)) {
+        $placeholders = implode(',', array_fill(0, count($assigned_aliases), '?'));
+        
+        $stmt = $conn->prepare("
+            SELECT *
+            FROM soil_readings
+            WHERE device_id IN ($placeholders)
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ");
+        $stmt->execute($assigned_aliases);
+        $latest = $stmt->fetch(PDO::FETCH_ASSOC);
+
         $history_stmt = $conn->prepare("
             SELECT id, moisture, ph, temperature, nitrogen, phosphorus, potassium, created_at
             FROM soil_readings
-            WHERE device_id = ?
+            WHERE device_id IN ($placeholders)
             ORDER BY created_at DESC, id DESC
             LIMIT 20
         ");
-        $history_stmt->execute([$assigned_device_id]);
+        $history_stmt->execute($assigned_aliases);
         $history_records = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
+        $latest = null;
         $history_records = [];
     }
 } catch (PDOException $e) {
+    $latest = null;
     $history_records = [];
 }
 
@@ -211,8 +195,8 @@ $reading_time = ($latest && isset($latest['created_at'])) ? date('g:i A', strtot
 $reading_date = ($latest && isset($latest['created_at'])) ? date('M j, Y', strtotime($latest['created_at'])) : date('M j, Y');
 
 $active_node = ($role === 'admin') 
-    ? ($latest['device_id'] ?? 'ESP32_GSM_01') 
-    : ($assigned_device_id ?? 'No Node Configured');
+    ? ($latest['device_id'] ?? 'Node 1 (ESP32_GSM_01)') 
+    : ($assigned_info ? $assigned_info['display_label'] : 'No Node Configured');
 
 $is_outdated = true;
 if ($latest && isset($latest['created_at'])) {

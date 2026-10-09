@@ -16,18 +16,11 @@ if ($role === 'admin') {
     $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC, id DESC LIMIT 1");
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
 } elseif ($role === 'farmer' && $user_id > 0) {
-    $deviceStmt = $conn->prepare("
-        SELECT device_label
-        FROM sensor_data
-        WHERE user_id = ? AND device_label IS NOT NULL AND TRIM(device_label) <> ''
-        ORDER BY id DESC LIMIT 1
-    ");
-    $deviceStmt->execute([$user_id]);
-    $nodeLabel = $deviceStmt->fetchColumn();
-
-    if ($nodeLabel) {
-        $stmt = $conn->prepare("SELECT * FROM soil_readings WHERE device_id = ? ORDER BY created_at DESC, id DESC LIMIT 1");
-        $stmt->execute([$nodeLabel]);
+    $assignedInfo = get_assigned_device_for_user($conn, $user_id);
+    if ($assignedInfo && !empty($assignedInfo['aliases'])) {
+        $placeholders = implode(',', array_fill(0, count($assignedInfo['aliases']), '?'));
+        $stmt = $conn->prepare("SELECT * FROM soil_readings WHERE device_id IN ($placeholders) ORDER BY created_at DESC, id DESC LIMIT 1");
+        $stmt->execute($assignedInfo['aliases']);
         $latest = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 }

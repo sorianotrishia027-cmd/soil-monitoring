@@ -41,30 +41,20 @@ try {
 
 /*
 |--------------------------------------------------------------------------
-| RESOLVE ASSIGNED NODE
+| RESOLVE ASSIGNED NODE (UNIFIED WITH ESP32_GSM_01 & NODE 1)
 |--------------------------------------------------------------------------
 */
+$assigned_info = null;
 $assigned_device_id = null;
+$assigned_node_name = null;
+$assigned_aliases = [];
 
-if ($role !== 'admin') {
-    try {
-        $stmtDevice = $conn->prepare("
-            SELECT device_label
-            FROM sensor_data
-            WHERE user_id = ?
-              AND device_label IS NOT NULL
-              AND TRIM(device_label) <> ''
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $stmtDevice->execute([$user_id]);
-        $deviceRow = $stmtDevice->fetch(PDO::FETCH_ASSOC);
-
-        if ($deviceRow && !empty($deviceRow['device_label'])) {
-            $assigned_device_id = trim($deviceRow['device_label']);
-        }
-    } catch (PDOException $e) {
-        $assigned_device_id = null;
+if ($role !== 'admin' && $user_id > 0) {
+    $assigned_info = get_assigned_device_for_user($conn, $user_id);
+    if ($assigned_info) {
+        $assigned_device_id = $assigned_info['device_uid'];
+        $assigned_node_name = $assigned_info['node_name'];
+        $assigned_aliases = $assigned_info['aliases'];
     }
 }
 
@@ -84,15 +74,16 @@ try {
             LIMIT 1
         ");
         $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
-    } elseif ($assigned_device_id !== null) {
+    } elseif (!empty($assigned_aliases)) {
+        $placeholders = implode(',', array_fill(0, count($assigned_aliases), '?'));
         $stmtLatest = $conn->prepare("
             SELECT *
             FROM soil_readings
-            WHERE device_id = ?
+            WHERE device_id IN ($placeholders)
             ORDER BY created_at DESC, id DESC
             LIMIT 1
         ");
-        $stmtLatest->execute([$assigned_device_id]);
+        $stmtLatest->execute($assigned_aliases);
         $latest = $stmtLatest->fetch(PDO::FETCH_ASSOC);
     } else {
         $latest = null;
@@ -117,9 +108,10 @@ try {
     if ($role === 'admin') {
         $stmtCount = $conn->query("SELECT COUNT(*) AS total FROM soil_readings");
         $totalRows = (int)($stmtCount->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-    } elseif ($assigned_device_id !== null) {
-        $stmtCount = $conn->prepare("SELECT COUNT(*) AS total FROM soil_readings WHERE device_id = ?");
-        $stmtCount->execute([$assigned_device_id]);
+    } elseif (!empty($assigned_aliases)) {
+        $placeholders = implode(',', array_fill(0, count($assigned_aliases), '?'));
+        $stmtCount = $conn->prepare("SELECT COUNT(*) AS total FROM soil_readings WHERE device_id IN ($placeholders)");
+        $stmtCount->execute($assigned_aliases);
         $totalRows = (int)($stmtCount->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
     }
     $totalPages = max(1, (int)ceil($totalRows / $limit));
@@ -146,18 +138,16 @@ try {
         $stmtLogs->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmtLogs->execute();
         $historyLogs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
-    } elseif ($assigned_device_id !== null) {
+    } elseif (!empty($assigned_aliases)) {
+        $placeholders = implode(',', array_fill(0, count($assigned_aliases), '?'));
         $stmtLogs = $conn->prepare("
             SELECT *
             FROM soil_readings
-            WHERE device_id = ?
+            WHERE device_id IN ($placeholders)
             ORDER BY created_at DESC, id DESC
-            LIMIT :limit OFFSET :offset
+            LIMIT $limit OFFSET $offset
         ");
-        $stmtLogs->bindValue(1, $assigned_device_id, PDO::PARAM_STR);
-        $stmtLogs->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmtLogs->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmtLogs->execute();
+        $stmtLogs->execute($assigned_aliases);
         $historyLogs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
     }
 } catch (PDOException $e) {

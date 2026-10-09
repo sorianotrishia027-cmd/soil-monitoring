@@ -17,34 +17,22 @@ $role = strtolower(trim($_SESSION['role'] ?? 'farmer'));
 
 if ($user_id > 0) {
     try {
-        $assignedDeviceLabel = null;
+        $assignedAliases = [];
 
         if ($role !== 'admin') {
-            $deviceStmt = $conn->prepare("
-                SELECT device_label
-                FROM sensor_data
-                WHERE user_id = ?
-                  AND device_label IS NOT NULL
-                  AND TRIM(device_label) <> ''
-                ORDER BY id DESC
-                LIMIT 1
-            ");
-            $deviceStmt->execute([$user_id]);
-            $assignedDeviceLabel = $deviceStmt->fetchColumn();
-
-            if ($assignedDeviceLabel !== false && $assignedDeviceLabel !== null && trim((string)$assignedDeviceLabel) !== '') {
-                $assignedDeviceLabel = trim((string)$assignedDeviceLabel);
-            } else {
-                $assignedDeviceLabel = null;
+            $assignedInfo = get_assigned_device_for_user($conn, $user_id);
+            if ($assignedInfo && !empty($assignedInfo['aliases'])) {
+                $assignedAliases = $assignedInfo['aliases'];
             }
         }
 
         if ($role === 'admin') {
             $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC, id DESC LIMIT 15");
             $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } elseif ($assignedDeviceLabel !== null) {
-            $stmt = $conn->prepare("SELECT * FROM soil_readings WHERE device_id = ? ORDER BY created_at DESC, id DESC LIMIT 15");
-            $stmt->execute([$assignedDeviceLabel]);
+        } elseif (!empty($assignedAliases)) {
+            $placeholders = implode(',', array_fill(0, count($assignedAliases), '?'));
+            $stmt = $conn->prepare("SELECT * FROM soil_readings WHERE device_id IN ($placeholders) ORDER BY created_at DESC, id DESC LIMIT 15");
+            $stmt->execute($assignedAliases);
             $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $readings = [];

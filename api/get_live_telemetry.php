@@ -112,40 +112,22 @@ try {
      */
 
     $assignedDevice = null;
+    $assignedAliases = [];
+    $assignedInfo = null;
 
     if ($role !== 'admin') {
+        $assignedInfo = get_assigned_device_for_user($conn, $userId);
 
-        $assignmentStmt = $conn->prepare("
-            SELECT device_label
-            FROM sensor_data
-            WHERE user_id = ?
-              AND device_label IS NOT NULL
-              AND TRIM(device_label) <> ''
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-
-        $assignmentStmt->execute([$userId]);
-
-        $assignment = $assignmentStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (
-            $assignment &&
-            isset($assignment['device_label']) &&
-            trim((string)$assignment['device_label']) !== ''
-        ) {
-
-            $assignedDevice = trim(
-                (string)$assignment['device_label']
-            );
+        if ($assignedInfo && !empty($assignedInfo['aliases'])) {
+            $assignedDevice = $assignedInfo['device_uid'];
+            $assignedAliases = $assignedInfo['aliases'];
         }
 
         /*
          * No assigned node:
          * NEVER fall back to global telemetry.
          */
-
-        if ($assignedDevice === null) {
+        if ($assignedDevice === null || empty($assignedAliases)) {
 
             echo json_encode([
                 "status" => "empty",
@@ -175,16 +157,16 @@ try {
         ");
 
     } else {
-
+        $placeholders = implode(',', array_fill(0, count($assignedAliases), '?'));
         $stmt = $conn->prepare("
             SELECT *
             FROM soil_readings
-            WHERE device_id = ?
+            WHERE device_id IN ($placeholders)
             ORDER BY id DESC
             LIMIT 1
         ");
 
-        $stmt->execute([$assignedDevice]);
+        $stmt->execute($assignedAliases);
     }
 
     $latest = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -268,20 +250,20 @@ try {
         ");
 
     } else {
-
+        $placeholders = implode(',', array_fill(0, count($assignedAliases), '?'));
         $chartStmt = $conn->prepare("
             SELECT moisture, created_at
             FROM (
                 SELECT id, moisture, created_at
                 FROM soil_readings
-                WHERE device_id = ?
+                WHERE device_id IN ($placeholders)
                 ORDER BY id DESC
                 LIMIT 7
             ) AS sub
             ORDER BY id ASC
         ");
 
-        $chartStmt->execute([$assignedDevice]);
+        $chartStmt->execute($assignedAliases);
     }
 
     $chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -315,16 +297,16 @@ try {
         ");
 
     } else {
-
+        $placeholders = implode(',', array_fill(0, count($assignedAliases), '?'));
         $logsStmt = $conn->prepare("
             SELECT *
             FROM soil_readings
-            WHERE device_id = ?
+            WHERE device_id IN ($placeholders)
             ORDER BY id DESC
             LIMIT 15
         ");
 
-        $logsStmt->execute([$assignedDevice]);
+        $logsStmt->execute($assignedAliases);
     }
 
     $recentLogs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);

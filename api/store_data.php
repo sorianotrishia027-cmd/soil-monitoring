@@ -165,25 +165,40 @@ if ($moisture === false || $moisture === null ||
 
 try {
 
-    $owner_stmt = $conn->prepare("
-        SELECT
-            user_id,
-            device_label
-        FROM sensor_data
-        WHERE device_label = ?
-          AND user_id IS NOT NULL
-        ORDER BY id DESC
+    // 1. Resolve from devices table
+    $devOwnerStmt = $conn->prepare("
+        SELECT assigned_user_id, node_name, device_uid 
+        FROM devices 
+        WHERE device_uid = ? OR node_name = ?
         LIMIT 1
     ");
-
-    $owner_stmt->execute([$device_id]);
-
-    $owner = $owner_stmt->fetch(PDO::FETCH_ASSOC);
+    $devOwnerStmt->execute([$device_id, $device_id]);
+    $devOwner = $devOwnerStmt->fetch(PDO::FETCH_ASSOC);
 
     $owner_user_id = null;
+    if ($devOwner && !empty($devOwner['assigned_user_id'])) {
+        $owner_user_id = intval($devOwner['assigned_user_id']);
+    }
 
-    if ($owner) {
-        $owner_user_id = intval($owner['user_id']);
+    // 2. Fallback to sensor_data table
+    if ($owner_user_id === null) {
+        $owner_stmt = $conn->prepare("
+            SELECT
+                user_id,
+                device_label
+            FROM sensor_data
+            WHERE device_label = ?
+              AND user_id IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+
+        $owner_stmt->execute([$device_id]);
+        $owner = $owner_stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($owner) {
+            $owner_user_id = intval($owner['user_id']);
+        }
     }
 
 
