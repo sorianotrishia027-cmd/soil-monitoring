@@ -1,4 +1,6 @@
 <?php
+// views/recommendations.php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -11,6 +13,7 @@ $role = strtolower(trim($_SESSION['role'] ?? ''));
 $user_id = intval($_SESSION['user_id'] ?? 0);
 
 $latest = null;
+$assignedInfo = null;
 
 if ($role === 'admin') {
     $stmt = $conn->query("SELECT * FROM soil_readings ORDER BY created_at DESC, id DESC LIMIT 1");
@@ -25,89 +28,101 @@ if ($role === 'admin') {
     }
 }
 
-$moisture = isset($latest['moisture']) ? floatval($latest['moisture']) : 45.0;
-$ph = isset($latest['ph']) ? floatval($latest['ph']) : 6.5;
-$n = isset($latest['nitrogen']) ? floatval($latest['nitrogen']) : 35;
-$p = isset($latest['phosphorus']) ? floatval($latest['phosphorus']) : 22;
-$k = isset($latest['potassium']) ? floatval($latest['potassium']) : 30;
-$temp = isset($latest['temperature']) ? floatval($latest['temperature']) : 26.0;
-
+$has_data = ($latest !== null);
 $recommendations = [];
 
-// Moisture rules
-if ($moisture < 30) {
-    $recommendations[] = [
-        'title' => 'Critical Irrigation Needed',
-        'category' => 'Water Management',
-        'badge' => 'critical',
-        'desc' => "Soil moisture is critically low ({$moisture}%). Initiate a 2-3 hour field flood irrigation cycle immediately to prevent crop drought stress."
-    ];
-} elseif ($moisture > 60) {
-    $recommendations[] = [
-        'title' => 'Halt Active Irrigation',
-        'category' => 'Drainage',
-        'badge' => 'warning',
-        'desc' => "Soil moisture is elevated ({$moisture}%). Open perimeter drainage outlets to prevent prolonged anaerobic standing water and root rot."
-    ];
-} else {
-    $recommendations[] = [
-        'title' => 'Moisture Level Optimal',
-        'category' => 'Irrigation',
-        'badge' => 'optimal',
-        'desc' => "Current soil moisture ({$moisture}%) is optimal for lowland rice growth stages. Maintain regular cycle schedules."
-    ];
-}
+$moisture = $has_data && isset($latest['moisture']) ? floatval($latest['moisture']) : null;
+$ph = $has_data && isset($latest['ph']) ? floatval($latest['ph']) : null;
+$n = $has_data && isset($latest['nitrogen']) ? floatval($latest['nitrogen']) : null;
+$p = $has_data && isset($latest['phosphorus']) ? floatval($latest['phosphorus']) : null;
+$k = $has_data && isset($latest['potassium']) ? floatval($latest['potassium']) : null;
+$temp = $has_data && isset($latest['temperature']) ? floatval($latest['temperature']) : null;
 
-// pH rules
-if ($ph < 5.0) {
-    $recommendations[] = [
-        'title' => 'Apply Agricultural Lime (CaCO3)',
-        'category' => 'Soil Conditioning',
-        'badge' => 'critical',
-        'desc' => "Soil acidity is elevated (pH {$ph}). Broadcast 200-300 kg/ha of calcitic lime during land preparation to neutralize acidity and unlock bound nutrients."
-    ];
-} elseif ($ph > 7.5) {
-    $recommendations[] = [
-        'title' => 'Incorporate Organic Compost & Sulfur',
-        'category' => 'Soil Conditioning',
-        'badge' => 'warning',
-        'desc' => "Soil alkalinity is high (pH {$ph}). Apply decomposed organic rice hull mulch or elemental sulfur to gradually lower soil pH."
-    ];
-} else {
-    $recommendations[] = [
-        'title' => 'Soil pH in Ideal Range',
-        'category' => 'Soil Conditioning',
-        'badge' => 'optimal',
-        'desc' => "Soil pH ({$ph}) is in the ideal 5.5 - 7.0 buffer zone for maximum macro and micro-nutrient absorption."
-    ];
-}
+if ($has_data) {
+    // Moisture rules
+    if ($moisture < 30) {
+        $recommendations[] = [
+            'title' => 'Critical Irrigation Needed',
+            'category' => 'Water Management',
+            'badge' => 'critical',
+            'desc' => "Soil moisture is critically low ({$moisture}%). Initiate a 2-3 hour field flood irrigation cycle immediately to prevent crop drought stress."
+        ];
+    } elseif ($moisture > 60) {
+        $recommendations[] = [
+            'title' => 'Halt Active Irrigation',
+            'category' => 'Drainage',
+            'badge' => 'warning',
+            'desc' => "Soil moisture is elevated ({$moisture}%). Open perimeter drainage outlets to prevent prolonged anaerobic standing water and root rot."
+        ];
+    } else {
+        $recommendations[] = [
+            'title' => 'Moisture Level Optimal',
+            'category' => 'Irrigation',
+            'badge' => 'optimal',
+            'desc' => "Current soil moisture ({$moisture}%) is optimal for lowland rice growth stages. Maintain regular cycle schedules."
+        ];
+    }
 
-// Nutrients rules
-if ($n < 20) {
-    $recommendations[] = [
-        'title' => 'Nitrogen Top-Dressing Required',
-        'category' => 'Fertilizer Application',
-        'badge' => 'warning',
-        'desc' => "Low nitrogen concentration detected ({$n} mg/kg). Apply Urea (46-0-0) or Ammonium Sulfate at early tillering stage."
-    ];
-}
+    // pH rules
+    if ($ph < 5.0) {
+        $recommendations[] = [
+            'title' => 'Apply Agricultural Lime (CaCO3)',
+            'category' => 'Soil Conditioning',
+            'badge' => 'critical',
+            'desc' => "Soil acidity is elevated (pH {$ph}). Broadcast 200-300 kg/ha of calcitic lime during land preparation to neutralize acidity and unlock bound nutrients."
+        ];
+    } elseif ($ph > 7.5) {
+        $recommendations[] = [
+            'title' => 'Incorporate Organic Compost & Sulfur',
+            'category' => 'Soil Conditioning',
+            'badge' => 'warning',
+            'desc' => "Soil alkalinity is high (pH {$ph}). Apply decomposed organic rice hull mulch or elemental sulfur to gradually lower soil pH."
+        ];
+    } else {
+        $recommendations[] = [
+            'title' => 'Soil pH in Ideal Range',
+            'category' => 'Soil Conditioning',
+            'badge' => 'optimal',
+            'desc' => "Soil pH ({$ph}) is in the ideal 5.5 - 7.0 buffer zone for maximum macro and micro-nutrient absorption."
+        ];
+    }
 
-if ($p < 10) {
-    $recommendations[] = [
-        'title' => 'Phosphorus Supplementation (16-20-0 / 0-20-0)',
-        'category' => 'Root Development',
-        'badge' => 'warning',
-        'desc' => "Available phosphorus is below threshold ({$p} mg/kg). Apply Solophos or complete fertilizer during basal soil preparation."
-    ];
-}
+    // Nutrients rules
+    if ($n !== null && $n < 20) {
+        $recommendations[] = [
+            'title' => 'Nitrogen Top-Dressing Required',
+            'category' => 'Fertilizer Application',
+            'badge' => 'warning',
+            'desc' => "Available nitrogen is low ({$n} mg/kg). Side-dress with urea (46-0-0) or ammonium sulfate at panicle initiation to support tiller formation."
+        ];
+    }
 
-if ($k < 15) {
-    $recommendations[] = [
-        'title' => 'Potassium Application (Muriate of Potash 0-0-60)',
-        'category' => 'Grain Filling & Stalk Strength',
-        'badge' => 'warning',
-        'desc' => "Low potassium detected ({$k} mg/kg). Apply MOP at panicle initiation to enhance grain weight and lodging resistance."
-    ];
+    if ($p !== null && $p < 10) {
+        $recommendations[] = [
+            'title' => 'Phosphorus Supplementation Needed',
+            'category' => 'Fertilizer Application',
+            'badge' => 'warning',
+            'desc' => "Phosphorus is deficient ({$p} mg/kg). Apply Solophos (0-18-0) or 16-20-0 during early basal fertilizer application to stimulate strong root development."
+        ];
+    }
+
+    if ($k !== null && $k < 15) {
+        $recommendations[] = [
+            'title' => 'Potassium Boost Advised',
+            'category' => 'Fertilizer Application',
+            'badge' => 'warning',
+            'desc' => "Potassium levels are low ({$k} mg/kg). Apply Muriate of Potash (0-0-60) to improve grain filling and increase resistance to lodging and pests."
+        ];
+    }
+
+    if (empty($recommendations)) {
+        $recommendations[] = [
+            'title' => 'Standard Agronomic Management',
+            'category' => 'Field Maintenance',
+            'badge' => 'optimal',
+            'desc' => "All physical and chemical parameters are currently balanced. Continue routine weekly monitoring."
+        ];
+    }
 }
 ?>
 
@@ -122,41 +137,57 @@ if ($k < 15) {
     <div class="overview-stats-grid">
         <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Moisture</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= number_format($moisture, 1) ?>%</div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $moisture !== null ? number_format($moisture, 1) . '%' : '--' ?></div>
         </div>
         <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">pH Level</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= number_format($ph, 1) ?></div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $ph !== null ? number_format($ph, 1) : '--' ?></div>
         </div>
         <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">NPK Ratio</span>
-            <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= (int)$n ?>-<?= (int)$p ?>-<?= (int)$k ?></div>
+            <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= ($n !== null && $p !== null && $k !== null) ? ((int)$n . '-' . (int)$p . '-' . (int)$k) : '--' ?></div>
         </div>
         <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Temperature</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= number_format($temp, 1) ?>°C</div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $temp !== null ? number_format($temp, 1) . '°C' : '--' ?></div>
         </div>
     </div>
 
     <!-- Recommendations Cards List -->
     <div style="display: flex; flex-direction: column; gap: 14px;">
-        <?php foreach ($recommendations as $rec): ?>
-            <div class="card-panel" style="padding: 20px 24px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="badge-pill <?= $rec['badge'] ?>">
-                            <?= htmlspecialchars($rec['category']) ?>
-                        </span>
-                        <h4 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin: 0;">
-                            <?= htmlspecialchars($rec['title']) ?>
-                        </h4>
+        <?php if ($has_data && !empty($recommendations)): ?>
+            <?php foreach ($recommendations as $rec): ?>
+                <div class="card-panel" style="padding: 20px 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="badge-pill <?= $rec['badge'] ?>">
+                                <?= htmlspecialchars($rec['category']) ?>
+                            </span>
+                            <h4 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin: 0;">
+                                <?= htmlspecialchars($rec['title']) ?>
+                            </h4>
+                        </div>
                     </div>
+                    <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-body); margin: 0;">
+                        <?= htmlspecialchars($rec['desc']) ?>
+                    </p>
                 </div>
-                <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-body); margin: 0;">
-                    <?= htmlspecialchars($rec['desc']) ?>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="card-panel" style="text-align: center; padding: 40px 20px;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">No Active Node Telemetry</h3>
+                <p style="font-size: 13.5px; color: var(--text-muted); max-width: 480px; margin: 0 auto;">
+                    No field monitoring node is currently linked to your account. Actionable fertilizer and crop guidance will automatically appear once a node is assigned.
                 </p>
             </div>
-        <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 
 </div>

@@ -197,12 +197,14 @@ function getMetricBadge($type, $val) {
     return ['class' => 'optimal', 'label' => 'Optimal', 'color' => '#16a34a'];
 }
 
-$valMoisture = $latest['moisture'] ?? 0.0;
-$valPh = $latest['ph'] ?? 6.6;
-$valTemp = $latest['temperature'] ?? 31.6;
-$valN = $latest['nitrogen'] ?? 46;
-$valP = $latest['phosphorus'] ?? 24;
-$valK = $latest['potassium'] ?? 74;
+$has_data = ($latest !== null);
+
+$valMoisture = $has_data && isset($latest['moisture']) ? (float)$latest['moisture'] : null;
+$valPh = $has_data && isset($latest['ph']) ? (float)$latest['ph'] : null;
+$valTemp = $has_data && isset($latest['temperature']) ? (float)$latest['temperature'] : null;
+$valN = $has_data && isset($latest['nitrogen']) ? (float)$latest['nitrogen'] : null;
+$valP = $has_data && isset($latest['phosphorus']) ? (float)$latest['phosphorus'] : null;
+$valK = $has_data && isset($latest['potassium']) ? (float)$latest['potassium'] : null;
 
 $mBadge = getMetricBadge('moisture', $valMoisture);
 $phBadge = getMetricBadge('ph', $valPh);
@@ -211,12 +213,12 @@ $nBadge = getMetricBadge('nitrogen', $valN);
 $pBadge = getMetricBadge('phosphorus', $valP);
 $kBadge = getMetricBadge('potassium', $valK);
 
-$readingFormatted = ($latest && isset($latest['created_at']))
+$readingFormatted = ($has_data && isset($latest['created_at']))
     ? date('M j, Y · g:i A', strtotime($latest['created_at']))
-    : date('M j, Y · g:i A');
+    : ($role === 'farmer' && !$assigned_info ? 'No Node Assigned' : 'No telemetry logged');
 
-$timeDiff = ($latest && isset($latest['created_at'])) ? (time() - strtotime($latest['created_at'])) : 9999;
-$outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchronized';
+$timeDiff = ($has_data && isset($latest['created_at'])) ? (time() - strtotime($latest['created_at'])) : 9999;
+$outdatedText = $has_data ? (($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchronized') : '';
 ?>
 
 <div class="sub-view-panel-container">
@@ -261,7 +263,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">SOIL MOISTURE</span>
                 <span class="badge-pill <?= $mBadge['class'] ?>"><?= $mBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= number_format((float)$valMoisture, 1) ?>%</div>
+            <div class="parameter-value-large"><?= $valMoisture !== null ? number_format((float)$valMoisture, 1) . '%' : '--' ?></div>
             <div class="parameter-target-range">Target: 30% - 60%</div>
         </div>
 
@@ -271,7 +273,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">PH LEVEL</span>
                 <span class="badge-pill <?= $phBadge['class'] ?>"><?= $phBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= number_format((float)$valPh, 1) ?></div>
+            <div class="parameter-value-large"><?= $valPh !== null ? number_format((float)$valPh, 1) : '--' ?></div>
             <div class="parameter-target-range">Target: 5.0 - 7.5</div>
         </div>
 
@@ -281,7 +283,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">NITROGEN (N)</span>
                 <span class="badge-pill <?= $nBadge['class'] ?>"><?= $nBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= htmlspecialchars((string)$valN) ?> <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span></div>
+            <div class="parameter-value-large"><?= $valN !== null ? htmlspecialchars((string)round($valN)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 20 - 50</div>
         </div>
 
@@ -291,7 +293,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">PHOSPHORUS (P)</span>
                 <span class="badge-pill <?= $pBadge['class'] ?>"><?= $pBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= htmlspecialchars((string)$valP) ?> <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span></div>
+            <div class="parameter-value-large"><?= $valP !== null ? htmlspecialchars((string)round($valP)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 10 - 30</div>
         </div>
 
@@ -301,7 +303,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">POTASSIUM (K)</span>
                 <span class="badge-pill <?= $kBadge['class'] ?>"><?= $kBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= htmlspecialchars((string)$valK) ?> <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span></div>
+            <div class="parameter-value-large"><?= $valK !== null ? htmlspecialchars((string)round($valK)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 15 - 50</div>
         </div>
 
@@ -311,7 +313,7 @@ $outdatedText = ($timeDiff > 600) ? ' · Over 10 minutes old' : ' · Live Synchr
                 <span class="parameter-name">TEMPERATURE</span>
                 <span class="badge-pill <?= $tBadge['class'] ?>"><?= $tBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= number_format((float)$valTemp, 1) ?>°C</div>
+            <div class="parameter-value-large"><?= $valTemp !== null ? number_format((float)$valTemp, 1) . '°C' : '--' ?></div>
             <div class="parameter-target-range">Target: 20°C - 32°C</div>
         </div>
 

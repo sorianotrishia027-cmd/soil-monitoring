@@ -110,7 +110,19 @@ if ($user_id > 0) {
         <p>Automated threshold notifications based on field telemetry data.</p>
     </div>
 
-    <?php if (empty($alerts)): ?>
+    <?php if ($role === 'farmer' && empty($assignedAliases)): ?>
+        <div class="card-panel" style="text-align: center; padding: 40px 20px;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h4 style="font-size: 17px; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">No Node Configured</h4>
+            <p style="font-size: 13.5px; color: var(--text-muted); max-width: 440px; margin: 0 auto;">No monitoring node is currently assigned to this farmer profile. Contact your cooperative administrator to link a field sensor node.</p>
+        </div>
+    <?php elseif (empty($alerts)): ?>
         <div class="card-panel" style="text-align: center; padding: 40px 20px;">
             <div style="width: 50px; height: 50px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

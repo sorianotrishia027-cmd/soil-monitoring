@@ -177,12 +177,14 @@ function evaluateParam($type, $val) {
     }
 }
 
-$moisture_raw = $latest['moisture'] ?? 0.0;
-$ph_raw = $latest['ph'] ?? 6.6;
-$temp_raw = $latest['temperature'] ?? 31.6;
-$n_raw = $latest['nitrogen'] ?? 46;
-$p_raw = $latest['phosphorus'] ?? 24;
-$k_raw = $latest['potassium'] ?? 74;
+$has_data = ($latest !== null);
+
+$moisture_raw = $has_data && isset($latest['moisture']) ? (float)$latest['moisture'] : null;
+$ph_raw = $has_data && isset($latest['ph']) ? (float)$latest['ph'] : null;
+$temp_raw = $has_data && isset($latest['temperature']) ? (float)$latest['temperature'] : null;
+$n_raw = $has_data && isset($latest['nitrogen']) ? (float)$latest['nitrogen'] : null;
+$p_raw = $has_data && isset($latest['phosphorus']) ? (float)$latest['phosphorus'] : null;
+$k_raw = $has_data && isset($latest['potassium']) ? (float)$latest['potassium'] : null;
 
 $m_status = evaluateParam('moisture', $moisture_raw);
 $ph_status = evaluateParam('ph', $ph_raw);
@@ -191,15 +193,15 @@ $n_status = evaluateParam('n', $n_raw);
 $p_status = evaluateParam('p', $p_raw);
 $k_status = evaluateParam('k', $k_raw);
 
-$reading_time = ($latest && isset($latest['created_at'])) ? date('g:i A', strtotime($latest['created_at'])) : date('g:i A');
-$reading_date = ($latest && isset($latest['created_at'])) ? date('M j, Y', strtotime($latest['created_at'])) : date('M j, Y');
+$reading_time = ($has_data && isset($latest['created_at'])) ? date('g:i A', strtotime($latest['created_at'])) : '--';
+$reading_date = ($has_data && isset($latest['created_at'])) ? date('M j, Y', strtotime($latest['created_at'])) : ($role === 'farmer' && !$assigned_info ? 'No Node Assigned' : 'No Readings Yet');
 
 $active_node = ($role === 'admin') 
     ? ($latest['device_id'] ?? 'Node 1 (ESP32_GSM_01)') 
     : ($assigned_info ? $assigned_info['display_label'] : 'No Node Configured');
 
 $is_outdated = true;
-if ($latest && isset($latest['created_at'])) {
+if ($has_data && isset($latest['created_at'])) {
     $diff = time() - strtotime($latest['created_at']);
     if ($diff < 600) {
         $is_outdated = false;
@@ -228,7 +230,7 @@ if ($latest && isset($latest['created_at'])) {
                 </span>
             </div>
             <div class="stat-widget-bottom">
-                <div class="stat-big-value" id="home-val-moisture"><?= number_format((float)$moisture_raw, 1) ?>%</div>
+                <div class="stat-big-value" id="home-val-moisture"><?= $moisture_raw !== null ? number_format((float)$moisture_raw, 1) . '%' : '--' ?></div>
                 <div class="stat-sub-text">Target: 30% – 60%</div>
             </div>
         </div>
@@ -248,7 +250,7 @@ if ($latest && isset($latest['created_at'])) {
                 </span>
             </div>
             <div class="stat-widget-bottom">
-                <div class="stat-big-value" id="home-val-ph"><?= number_format((float)$ph_raw, 1) ?></div>
+                <div class="stat-big-value" id="home-val-ph"><?= $ph_raw !== null ? number_format((float)$ph_raw, 1) : '--' ?></div>
                 <div class="stat-sub-text">Target: 5.0 – 7.5</div>
             </div>
         </div>
@@ -267,13 +269,13 @@ if ($latest && isset($latest['created_at'])) {
                 </span>
             </div>
             <div class="stat-widget-bottom">
-                <div class="stat-big-value" id="home-val-temp"><?= number_format((float)$temp_raw, 1) ?>°C</div>
+                <div class="stat-big-value" id="home-val-temp"><?= $temp_raw !== null ? number_format((float)$temp_raw, 1) . '°C' : '--' ?></div>
                 <div class="stat-sub-text">Target: 20°C – 32°C</div>
             </div>
         </div>
 
         <!-- Last Reading -->
-        <div class="stat-widget-card" style="border-top: 3px solid <?= $is_outdated ? '#f59e0b' : '#16a34a' ?>;">
+        <div class="stat-widget-card" style="border-top: 3px solid <?= !$has_data ? '#9ca3af' : ($is_outdated ? '#f59e0b' : '#16a34a') ?>;">
             <div class="stat-widget-top">
                 <div class="stat-icon-label">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -282,8 +284,8 @@ if ($latest && isset($latest['created_at'])) {
                     </svg>
                     <span>Last reading</span>
                 </div>
-                <span class="badge-pill <?= $is_outdated ? 'warning' : 'optimal' ?>" style="font-size: 10.5px; padding: 2px 8px;">
-                    <?= $is_outdated ? 'Outdated' : 'Live' ?>
+                <span class="badge-pill <?= !$has_data ? 'neutral' : ($is_outdated ? 'warning' : 'optimal') ?>" style="font-size: 10.5px; padding: 2px 8px;">
+                    <?= !$has_data ? 'No Data' : ($is_outdated ? 'Outdated' : 'Live') ?>
                 </span>
             </div>
             <div class="stat-widget-bottom">
@@ -332,7 +334,7 @@ if ($latest && isset($latest['created_at'])) {
                     <span class="badge-pill <?= $n_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $n_status['label'] ?></span>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= htmlspecialchars((string)$n_raw) ?></span>
+                    <span class="nutrient-big-num" style="margin-left:0;"><?= $n_raw !== null ? htmlspecialchars((string)round($n_raw)) : '--' ?></span>
                     <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
                 </div>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 20 – 50 mg/kg</div>
@@ -352,7 +354,7 @@ if ($latest && isset($latest['created_at'])) {
                     <span class="badge-pill <?= $p_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $p_status['label'] ?></span>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= htmlspecialchars((string)$p_raw) ?></span>
+                    <span class="nutrient-big-num" style="margin-left:0;"><?= $p_raw !== null ? htmlspecialchars((string)round($p_raw)) : '--' ?></span>
                     <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
                 </div>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 10 – 30 mg/kg</div>
@@ -370,7 +372,7 @@ if ($latest && isset($latest['created_at'])) {
                     <span class="badge-pill <?= $k_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $k_status['label'] ?></span>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= htmlspecialchars((string)$k_raw) ?></span>
+                    <span class="nutrient-big-num" style="margin-left:0;"><?= $k_raw !== null ? htmlspecialchars((string)round($k_raw)) : '--' ?></span>
                     <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
                 </div>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 15 – 50 mg/kg</div>
@@ -378,7 +380,7 @@ if ($latest && isset($latest['created_at'])) {
 
         </div>
 
-        <div class="nutrients-footer-note">
+    </div>    <div class="nutrients-footer-note">
             Verify NPK readings before making fertilizer decisions. Color Legend: 
             <span style="color:#dc2626; font-weight:700;">● Red (Deficient/Low)</span> &nbsp;|&nbsp; 
             <span style="color:#16a34a; font-weight:700;">● Green (Optimal)</span> &nbsp;|&nbsp; 
@@ -401,19 +403,23 @@ if ($latest && isset($latest['created_at'])) {
                 Field condition
             </div>
 
-            <div class="condition-status-box <?= !$is_outdated ? 'optimal' : '' ?>">
-                <div class="condition-icon-badge" style="color: <?= $is_outdated ? '#ea580c' : '#16a34a' ?>;">
+            <div class="condition-status-box <?= !$has_data ? 'neutral' : ($is_outdated ? 'warning' : 'optimal') ?>">
+                <div class="condition-icon-badge" style="color: <?= !$has_data ? '#6b7280' : ($is_outdated ? '#ea580c' : '#16a34a') ?>;">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
                 </div>
                 <div class="condition-title">
-                    <?= $is_outdated ? 'A fresh reading is needed' : 'Optimal Field Conditions' ?>
+                    <?= !$has_data 
+                        ? 'No Monitoring Node Assigned' 
+                        : ($is_outdated ? 'A fresh reading is needed' : 'Optimal Field Conditions') ?>
                 </div>
                 <div class="condition-desc">
-                    <?= $is_outdated 
-                        ? 'The last reading is over 10 minutes old. Check the monitoring node.' 
-                        : 'All sensor telemetry parameters are in good health.' ?>
+                    <?= !$has_data 
+                        ? 'This farmer account has no active hardware node assigned yet. Contact your administrator.' 
+                        : ($is_outdated ? 'The last reading is over 10 minutes old. Check the monitoring node.' : 'All sensor telemetry parameters are in good health.') ?>
                 </div>
             </div>
 
@@ -444,7 +450,7 @@ if ($latest && isset($latest['created_at'])) {
                     </svg>
                 </div>
                 <span class="node-id-label"><?= htmlspecialchars($active_node) ?></span>
-                <span class="node-status-text"><?= $is_outdated ? 'Last reading is outdated' : 'Active Connection' ?></span>
+                <span class="node-status-text"><?= !$has_data ? 'Standby / Unassigned' : ($is_outdated ? 'Last reading is outdated' : 'Active Connection') ?></span>
                 
                 <?php if ($role === 'admin'): ?>
                     <a href="dashboard.php?page=devices_manage" class="btn-outline">
@@ -458,7 +464,7 @@ if ($latest && isset($latest['created_at'])) {
             </div>
 
             <div style="font-size: 12px; color: var(--text-muted); text-align: center;">
-                Node synchronization active via GSM telemetry.
+                <?= $has_data ? 'Node synchronization active via GSM telemetry.' : 'No telemetry hardware currently streaming to this profile.' ?>
             </div>
         </div>
 
