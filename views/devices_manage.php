@@ -24,26 +24,35 @@ $msg = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
     $action = $_POST['action'];
 
-    // 1. REGISTER / ADD NEW HARDWARE NODE
+    // 1. REGISTER / ADD NEW HARDWARE NODE (Single Input Field)
     if ($action === 'add_node') {
-        $node_name = trim($_POST['node_name'] ?? '');
-        $device_uid = trim($_POST['device_uid'] ?? '');
-        $location = trim($_POST['location'] ?? '');
+        $input = trim($_POST['node_name'] ?? '');
 
-        if (!empty($node_name) && !empty($device_uid)) {
+        if (!empty($input)) {
+            $node_name = $input;
+            $device_uid = $input;
+
+            if (preg_match('/^Node\s*(\d+)$/i', $input, $m)) {
+                $node_name = 'Node ' . $m[1];
+                $device_uid = 'Node ' . $m[1];
+            } elseif (preg_match('/^ESP32[_-]?(?:GSM[_-]?)?0*(\d+)$/i', $input, $m)) {
+                $node_name = 'Node ' . intval($m[1]);
+                $device_uid = $input;
+            }
+
             try {
                 $stmt = $conn->prepare("
-                    INSERT INTO devices (node_name, device_uid, location, status) 
-                    VALUES (?, ?, ?, 'available')
-                    ON DUPLICATE KEY UPDATE node_name = VALUES(node_name), location = VALUES(location)
+                    INSERT INTO devices (node_name, device_uid, status) 
+                    VALUES (?, ?, 'available')
+                    ON DUPLICATE KEY UPDATE node_name = VALUES(node_name), status = 'available'
                 ");
-                $stmt->execute([$node_name, $device_uid, $location ?: 'Unassigned Sector']);
-                $msg = "<div class='alert success'>Successfully registered <strong>" . htmlspecialchars($node_name) . "</strong> (" . htmlspecialchars($device_uid) . ") to the node inventory!</div>";
+                $stmt->execute([$node_name, $device_uid]);
+                $msg = "<div class='alert success'>Successfully registered <strong>" . htmlspecialchars($node_name) . "</strong> to the node inventory!</div>";
             } catch (PDOException $e) {
                 $msg = "<div class='alert danger'>Failed to register node: " . htmlspecialchars($e->getMessage()) . "</div>";
             }
         } else {
-            $msg = "<div class='alert warning'>Please fill in both the Node Name and Hardware Device UID.</div>";
+            $msg = "<div class='alert warning'>Please enter a valid node identifier or label.</div>";
         }
     }
 
@@ -58,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
                     // Release any nodes currently assigned to this farmer
                     $clearStmt = $conn->prepare("UPDATE devices SET assigned_user_id = NULL, status = 'available' WHERE assigned_user_id = ?");
                     $clearStmt->execute([$farmer_id]);
-                    $msg = "<div class='alert success'>Farmer node assignment successfully cleared and released.</div>";
+                    $msg = "<div class='alert success'>Farmer node assignment successfully released.</div>";
                 } elseif (is_numeric($device_id_val) && intval($device_id_val) > 0) {
                     $node_pk = intval($device_id_val);
 
@@ -83,7 +92,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action'])) {
                         ");
                         $syncStmt->execute([$farmer_id, $nodeInfo['device_uid']]);
 
-                        $msg = "<div class='alert success'>Successfully assigned <strong>" . htmlspecialchars($nodeInfo['node_name']) . " (" . htmlspecialchars($nodeInfo['device_uid']) . ")</strong> to the farmer!</div>";
+                        $msg = "<div class='alert success'>Successfully assigned <strong>" . htmlspecialchars($nodeInfo['node_name']) . " (" . htmlspecialchars($nodeInfo['device_uid']) . ")</strong> to the selected farmer!</div>";
                     } else {
                         $msg = "<div class='alert danger'>Selected node could not be found.</div>";
                     }
@@ -141,7 +150,6 @@ $assignments_query = "
         d.id AS device_id,
         d.node_name,
         d.device_uid,
-        d.location,
         s.device_label AS legacy_label
     FROM users u
     LEFT JOIN devices d ON d.assigned_user_id = u.id
@@ -169,17 +177,17 @@ try {
         <h3 style="display: flex; align-items: center; gap: 8px;">
             <span>📡</span> IoT Field Node & Hardware Management
         </h3>
-        <p>Register field nodes (e.g. Node 1 = ESP32_GSM_01) and assign available hardware to farmers via dropdown selection.</p>
+        <p>Register monitoring nodes (e.g., Node 1 = ESP32_GSM_01) and deploy hardware assignments to farmers via dropdown selection.</p>
     </div>
 
     <?= $msg ?>
 
     <!-- =========================================================
-         2-COLUMN SPLIT: 1. ADD NEW NODE & 2. ASSIGN NODE (DROPDOWN)
+         2-COLUMN SPLIT: 1. ADD NEW NODE (1 INPUT) & 2. ASSIGN NODE (DROPDOWN)
          ========================================================= -->
     <div class="insights-dashboard-split-row">
         
-        <!-- CARD 1: ADD / REGISTER NEW HARDWARE NODE -->
+        <!-- CARD 1: ADD / REGISTER NEW NODE (1 TEXTFIELD) -->
         <div class="card-panel">
             <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -194,34 +202,20 @@ try {
                 <input type="hidden" name="action" value="add_node">
 
                 <div class="form-group">
-                    <label class="form-label">Node Display Name:</label>
+                    <label class="form-label">Node Identifier / Label:</label>
                     <div class="input-field-wrapper">
-                        <input type="text" name="node_name" placeholder="e.g., Node 1, Node 2, Node 3" required>
+                        <input type="text" name="node_name" placeholder="e.g., Node 2 or ESP32_GSM_02" required>
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Hardware Device UID / Identifier:</label>
-                    <div class="input-field-wrapper">
-                        <input type="text" name="device_uid" placeholder="e.g., ESP32_GSM_01" required>
-                    </div>
-                    <small style="color: var(--text-subtle); font-size: 11.5px; margin-top: 4px; display:block;">
-                        * Dapat tumugma sa <code>device_id</code> na ipinapadala ng ESP32 hardware telemetry.
+                    <small style="color: var(--text-subtle); font-size: 11.5px; margin-top: 6px; display:block;">
+                        * Enter a node name or hardware UID to register it into the system inventory.
                     </small>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Field / Sector Location (Optional):</label>
-                    <div class="input-field-wrapper">
-                        <input type="text" name="location" placeholder="e.g., Sector 1 - Rice Field North">
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-primary" style="margin-top: 8px;">
+                <button type="submit" class="btn-primary" style="margin-top: 14px;">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
-                    Register Hardware Node
+                    Register Node
                 </button>
             </form>
         </div>
@@ -278,7 +272,7 @@ try {
                                 endforeach; 
                                 if (!$hasAvailable):
                                 ?>
-                                    <option value="" disabled>(Walang bakanteng node — magrehistro ng bago sa kaliwa)</option>
+                                    <option value="" disabled>(No available nodes — register a new node on the left)</option>
                                 <?php endif; ?>
                             </optgroup>
 
@@ -304,9 +298,9 @@ try {
                 </div>
 
                 <div class="directive-highlight-box" style="margin-top: 14px; margin-bottom: 14px;">
-                    <div class="directive-muted-tag">HARDWARE MAPPING ARCHITECTURE</div>
+                    <div class="directive-muted-tag">HARDWARE ARCHITECTURE</div>
                     <div class="directive-metric-val" style="font-size: 12px; line-height: 1.4;">
-                        Ang <strong>Node 1</strong> at <strong>ESP32_GSM_01</strong> ay awtomatikong magka-link para sa real-time telemetry display.
+                        <strong>Node 1</strong> and <strong>ESP32_GSM_01</strong> are automatically unified for seamless real-time telemetry streaming.
                     </div>
                 </div>
 
@@ -349,7 +343,6 @@ try {
                     <tr>
                         <th>Node Name</th>
                         <th>Hardware Device UID</th>
-                        <th>Deployment Location</th>
                         <th>Assigned Farmer</th>
                         <th>Status</th>
                         <th style="text-align: right;">Action</th>
@@ -369,9 +362,6 @@ try {
                                     <code style="background:#edf3ef; color:#143d2c; padding:3px 8px; border-radius:4px; font-weight:700; font-size:12.5px;">
                                         <?= htmlspecialchars($node['device_uid']) ?>
                                     </code>
-                                </td>
-                                <td style="font-size: 13px; color: var(--text-body);">
-                                    <?= htmlspecialchars($node['location'] ?: 'General Rice Field Sector') ?>
                                 </td>
                                 <td>
                                     <?php if (!empty($node['assigned_user_id'])): ?>
@@ -395,7 +385,7 @@ try {
                                 <td style="text-align: right;">
                                     <div style="display: inline-flex; gap: 6px; align-items: center;">
                                         <?php if (!empty($node['assigned_user_id'])): ?>
-                                            <form action="dashboard.php?page=devices_manage" method="POST" style="display:inline;" onsubmit="return confirm('Release this node from the farmer?');">
+                                            <form action="dashboard.php?page=devices_manage" method="POST" style="display:inline;" onsubmit="return confirm('Release this node from the assigned farmer?');">
                                                 <input type="hidden" name="action" value="unassign_node_direct">
                                                 <input type="hidden" name="node_id" value="<?= $node['id'] ?>">
                                                 <button type="submit" class="btn-outline" style="padding: 4px 10px; font-size: 11.5px; color: #b45309; border-color: #fde68a; background: #fffbeb;">
@@ -404,7 +394,7 @@ try {
                                             </form>
                                         <?php endif; ?>
 
-                                        <form action="dashboard.php?page=devices_manage" method="POST" style="display:inline;" onsubmit="return confirm('Sigurado ka bang nais mong burahin ang node na ito?');">
+                                        <form action="dashboard.php?page=devices_manage" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to remove this node from registry?');">
                                             <input type="hidden" name="action" value="delete_node">
                                             <input type="hidden" name="node_id" value="<?= $node['id'] ?>">
                                             <button type="submit" class="btn-outline" style="padding: 4px 10px; font-size: 11.5px; color: #dc2626; border-color: #fecaca; background: #fef2f2;">
@@ -417,7 +407,7 @@ try {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" style="text-align: center; color: #9ca3af; padding: 24px;">No hardware nodes currently registered. Use the form above to add Node 1.</td>
+                            <td colspan="5" style="text-align: center; color: #9ca3af; padding: 24px;">No hardware nodes currently registered. Use the form above to add a node.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -453,8 +443,7 @@ try {
                     <tr>
                         <th>Farmer Account</th>
                         <th>Full Name</th>
-                        <th>Assigned Node & Device UID</th>
-                        <th>Location Sector</th>
+                        <th>Assigned Node & UID</th>
                         <th>Sync Status</th>
                     </tr>
                 </thead>
@@ -485,9 +474,6 @@ try {
                                         <span style="color: #9ca3af; font-style: italic; font-size: 13px;">No Node Configured</span>
                                     <?php endif; ?>
                                 </td>
-                                <td style="font-size: 13px; color: var(--text-muted);">
-                                    <?= htmlspecialchars($row['location'] ?: ($hasNode ? 'Assigned Field' : 'Unmapped')) ?>
-                                </td>
                                 <td>
                                     <span class="badge-pill <?= $hasNode ? 'optimal' : 'neutral' ?>" style="font-size: 11px;">
                                         <?= $hasNode ? 'Live Sync Active' : 'Standby / Idle' ?>
@@ -497,7 +483,7 @@ try {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" style="text-align: center; color: #9ca3af; padding: 24px;">No farmer profiles currently found.</td>
+                            <td colspan="4" style="text-align: center; color: #9ca3af; padding: 24px;">No farmer profiles currently found.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
