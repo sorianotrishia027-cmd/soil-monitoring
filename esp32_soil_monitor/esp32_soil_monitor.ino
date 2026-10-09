@@ -416,6 +416,8 @@ void fetchDynamicContactsFromCloud() {
     "  ↳ Reading contact response..."
   );
 
+  delay(300);
+
   String rawResp =
     sendAT(
       "AT+HTTPREAD",
@@ -424,7 +426,7 @@ void fetchDynamicContactsFromCloud() {
 
   sendAT(
     "AT+HTTPTERM",
-    300
+    500
   );
 
   // -----------------------------------------------------
@@ -999,9 +1001,10 @@ void readPureHardwareNPK(
       k
     )
   ) {
-
+    n = constrain(n, 10, 99);
+    p = constrain(p, 10, 99);
+    k = constrain(k, 10, 99);
     npkHardwareValid = true;
-
     return;
   }
 
@@ -1019,9 +1022,10 @@ void readPureHardwareNPK(
       k
     )
   ) {
-
+    n = constrain(n, 10, 99);
+    p = constrain(p, 10, 99);
+    k = constrain(k, 10, 99);
     npkHardwareValid = true;
-
     return;
   }
 
@@ -1039,67 +1043,28 @@ void readPureHardwareNPK(
       k
     )
   ) {
-
+    n = constrain(n, 10, 99);
+    p = constrain(p, 10, 99);
+    k = constrain(k, 10, 99);
     npkHardwareValid = true;
-
     return;
   }
 
   // -----------------------------------------------------
-  // NO VALID HARDWARE RESPONSE
+  // NO VALID HARDWARE RESPONSE (FALLBACK - 2 DIGITS)
   // -----------------------------------------------------
-  npkHardwareValid =
-    false;
+  npkHardwareValid = false;
 
-  // Current fallback retained from your original code.
-  // These are NOT confirmed RS485 measurements.
-  int baseN =
-    38 +
-    (int)(
-      ph * 1.5
-    ) +
-    random(
-      -2,
-      3
-    );
+  int baseN = 38 + (int)(ph * 1.5) + random(-2, 3);
+  int baseP = (int)(24.0 - abs(ph - 6.5) * 3.0) + random(-1, 2);
+  int baseK = 65 + (int)(temp * 0.3) + random(-2, 3);
 
-  int baseP =
-    (int)(24.0 - abs(ph - 6.5) * 3.0) +
-    random(-1, 2);
-
-  int baseK =
-    65 +
-    (int)(
-      temp * 0.3
-    ) +
-    random(
-      -2,
-      3
-    );
-
-  n =
-    constrain(
-      baseN,
-      25,
-      65
-    );
-
-  p =
-    constrain(
-      baseP,
-      15,
-      35
-    );
-
-  k =
-    constrain(
-      baseK,
-      50,
-      95
-    );
+  n = constrain(baseN, 25, 65);
+  p = constrain(baseP, 15, 35);
+  k = constrain(baseK, 50, 95);
 
   Serial.printf(
-    "⚠️ [NPK] NO VALID RS485 RESPONSE. FALLBACK VALUES USED: N=%u P=%u K=%u\n",
+    "⚠️ [NPK] NO VALID RS485 RESPONSE. FALLBACK VALUES USED (2-DIGIT): N=%u P=%u K=%u\n",
     n,
     p,
     k
@@ -2244,8 +2209,11 @@ void sendDataGSM(
     Serial.println("⚠️ [GSM-HTTP] No HTTPACTION ':' detected within timeout.");
   }
 
+  // Allow A7670C buffer to stabilize before reading response
+  delay(300);
+
   // 12. Read Railway response.
-  String readResp = sendAT("AT+HTTPREAD", 1000);
+  String readResp = sendAT("AT+HTTPREAD", 2000);
 
   Serial.println();
   Serial.println("[DEBUG] HTTPREAD RESPONSE:");
@@ -2253,7 +2221,7 @@ void sendDataGSM(
   Serial.println("-------------------------------------------------------");
 
   // 13. End HTTP session.
-  sendAT("AT+HTTPTERM", 200);
+  sendAT("AT+HTTPTERM", 500);
 
   // Give the radio a short recovery window before the next GSM task.
   delay(300);
@@ -3219,19 +3187,10 @@ void setup() {
   delay(100);
 
   if (
-    SD.begin(
-      SD_CS,
-      SPI,
-      4000000
-    ) ||
-    SD.begin(
-      SD_CS,
-      SPI,
-      1000000
-    ) ||
-    SD.begin(
-      SD_CS
-    )
+    SD.begin(SD_CS, SPI, 4000000) ||
+    SD.begin(SD_CS, SPI, 1000000) ||
+    SD.begin(SD_CS, SPI, 400000) ||
+    SD.begin(SD_CS)
   ) {
 
     sdCardReady =

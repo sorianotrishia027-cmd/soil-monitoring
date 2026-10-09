@@ -383,7 +383,7 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
             </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="table-responsive">
             <table class="custom-data-table">
                 <thead>
                     <tr>

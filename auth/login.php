@@ -89,22 +89,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             margin: 0;
             padding: 0;
             width: 100vw;
-            height: 100vh;
             min-height: 100vh;
-            overflow: hidden;
             background-color: #ffffff;
             font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         .login-full-wrapper {
             display: flex;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
             min-height: 100vh;
         }
 
         /* =========================================================
-           LEFT BRAND PANEL (Full height evergreen)
+           LEFT BRAND PANEL
            ========================================================= */
         .login-brand-panel {
             width: 48%;
@@ -127,15 +125,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-brand-icon {
-            width: 40px;
-            height: 40px;
-            color: #a3e2a3;
+            width: 42px;
+            height: 42px;
+            color: #86efac;
             flex-shrink: 0;
             margin-top: 2px;
         }
 
         .login-brand-title {
-            font-size: 26px;
+            font-size: 27px;
             font-weight: 800;
             line-height: 1.15;
             letter-spacing: -0.3px;
@@ -145,10 +143,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             margin: auto 0;
             z-index: 2;
             max-width: 520px;
+            padding: 40px 0;
         }
 
         .login-brand-headline {
-            font-size: 36px;
+            font-size: 38px;
             font-weight: 800;
             color: #ffffff;
             line-height: 1.25;
@@ -156,8 +155,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-brand-subtext {
-            font-size: 16px;
-            color: #a3c2b1;
+            font-size: 16.5px;
+            color: #bbf7d0;
             line-height: 1.6;
             margin-top: 18px;
             font-weight: 500;
@@ -169,7 +168,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             left: -40px;
             width: 280px;
             height: 280px;
-            color: rgba(255, 255, 255, 0.035);
+            color: rgba(255, 255, 255, 0.04);
             pointer-events: none;
             z-index: 1;
         }
@@ -179,24 +178,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-coop-name {
-            font-size: 13px;
-            color: #9bbbaa;
+            font-size: 13.5px;
+            color: #a8cdb9;
             font-weight: 600;
             line-height: 1.4;
         }
 
         .login-coop-location {
-            font-size: 11.5px;
-            color: #7d9e8d;
-            margin-top: 3px;
+            font-size: 12px;
+            color: #8bb29e;
+            margin-top: 4px;
         }
 
         /* =========================================================
-           RIGHT FORM PANEL (Full height white canvas)
+           RIGHT FORM PANEL
            ========================================================= */
         .login-form-panel {
             width: 52%;
-            height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -213,19 +211,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-form-title {
-            font-size: 30px;
+            font-size: 32px;
             font-weight: 800;
-            color: var(--text-heading, #12281e);
+            color: var(--text-heading, #0a1c13);
             margin: 0;
             letter-spacing: -0.5px;
             line-height: 1.2;
         }
 
         .login-form-subtitle {
-            font-size: 14.5px;
-            color: var(--text-muted, #6b7d73);
+            font-size: 15px;
+            color: var(--text-muted, #4a6254);
             margin-top: 6px;
             margin-bottom: 28px;
+            font-weight: 500;
         }
 
         .login-input-box {
@@ -233,20 +232,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             display: flex;
             align-items: center;
             background: #ffffff;
-            border: 1.5px solid #d5e0d7;
+            border: 1.5px solid #cbdcd0;
             border-radius: 10px;
             padding: 0 14px;
             margin-top: 6px;
             transition: all 0.2s ease;
+            min-height: 48px;
         }
 
         .login-input-box:focus-within {
             border-color: var(--primary-color, #143d2c);
-            box-shadow: 0 0 0 4px rgba(20, 61, 44, 0.1);
+            box-shadow: 0 0 0 4px rgba(20, 61, 44, 0.12);
         }
 
         .login-input-icon {
-            color: #9ca3af;
+            color: #5f7a6b;
             margin-right: 12px;
             display: flex;
             align-items: center;
@@ -258,60 +258,62 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border: none;
             outline: none;
             background: transparent;
-            padding: 13px 0;
-            font-size: 14px;
-            color: #12281e;
+            padding: 12px 0;
+            font-size: 15px;
+            color: #0a1c13;
             font-family: inherit;
         }
 
         .login-input-box input::placeholder {
-            color: #9ca3af;
+            color: #8fa597;
         }
 
         .login-bottom-hint {
             text-align: center;
-            font-size: 12.5px;
-            color: var(--text-muted, #6b7d73);
+            font-size: 13.5px;
+            color: var(--text-muted, #4a6254);
             margin-top: 26px;
+            font-weight: 500;
+            line-height: 1.5;
         }
 
         .login-page-footer {
-            position: absolute;
-            bottom: 20px;
-            font-size: 11.5px;
-            color: #87998e;
+            margin-top: 32px;
+            font-size: 12px;
+            color: var(--text-subtle, #5f7a6b);
             text-align: center;
+            font-weight: 500;
         }
 
         @media (max-width: 900px) {
-            body.login-full-body {
-                overflow-y: auto;
-                height: auto;
-            }
             .login-full-wrapper {
                 flex-direction: column;
-                height: auto;
                 min-height: 100vh;
             }
             .login-brand-panel {
                 width: 100%;
-                padding: 40px 28px;
+                padding: 36px 24px;
             }
             .login-brand-body {
-                margin: 28px 0;
+                margin: 20px 0;
+                padding: 10px 0;
             }
             .login-brand-headline {
                 font-size: 26px;
             }
+            .login-brand-subtext {
+                font-size: 14.5px;
+                margin-top: 10px;
+            }
             .login-form-panel {
                 width: 100%;
-                padding: 40px 24px 60px;
-                height: auto;
+                padding: 36px 20px 48px;
             }
-            .login-page-footer {
-                position: relative;
-                bottom: auto;
-                margin-top: 20px;
+            .login-form-title {
+                font-size: 26px;
+            }
+            .login-input-box input {
+                font-size: 16px; /* Prevents auto-zoom on iOS */
             }
         }
     </style>

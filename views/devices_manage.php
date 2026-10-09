@@ -337,7 +337,7 @@ try {
             </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="table-responsive">
             <table class="custom-data-table">
                 <thead>
                     <tr>
@@ -437,7 +437,7 @@ try {
             </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="table-responsive">
             <table class="custom-data-table">
                 <thead>
                     <tr>

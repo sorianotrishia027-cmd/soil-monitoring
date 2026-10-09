@@ -380,7 +380,7 @@ if ($has_data && isset($latest['created_at'])) {
 
         </div>
 
-    </div>    <div class="nutrients-footer-note">
+        <div class="nutrients-footer-note">
             Verify NPK readings before making fertilizer decisions. Color Legend: 
             <span style="color:#dc2626; font-weight:700;">● Red (Deficient/Low)</span> &nbsp;|&nbsp; 
             <span style="color:#16a34a; font-weight:700;">● Green (Optimal)</span> &nbsp;|&nbsp; 

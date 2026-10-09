@@ -55,27 +55,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-            font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+            padding: 24px 16px;
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
         }
 
         .login-card-container {
             display: flex;
             width: 100%;
-            max-width: 860px;
-            min-height: 520px;
+            max-width: 900px;
+            min-height: 540px;
             background: #ffffff;
             border-radius: 18px;
             overflow: hidden;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
-            border: 1px solid #e1e9e3;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+            border: 1px solid #dbe5de;
         }
 
         .login-brand-panel {
             width: 42%;
             background-color: var(--primary-color, #143d2c);
-            padding: 40px 36px;
+            padding: 44px 38px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -93,15 +94,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-brand-icon {
-            width: 34px;
-            height: 34px;
-            color: #a3e2a3;
+            width: 36px;
+            height: 36px;
+            color: #86efac;
             flex-shrink: 0;
             margin-top: 2px;
         }
 
         .login-brand-title {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 800;
             line-height: 1.15;
             letter-spacing: -0.3px;
@@ -113,7 +114,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-brand-headline {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 800;
             color: #ffffff;
             line-height: 1.25;
@@ -121,9 +122,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-brand-subtext {
-            font-size: 13px;
-            color: #a3c2b1;
-            line-height: 1.5;
+            font-size: 14px;
+            color: #bbf7d0;
+            line-height: 1.55;
             margin-top: 12px;
             font-weight: 500;
         }
@@ -132,8 +133,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             position: absolute;
             bottom: 40px;
             left: -20px;
-            width: 160px;
-            height: 160px;
+            width: 180px;
+            height: 180px;
             color: rgba(255, 255, 255, 0.04);
             pointer-events: none;
             z-index: 1;
@@ -144,21 +145,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-coop-name {
-            font-size: 11px;
-            color: #9bbbaa;
+            font-size: 12px;
+            color: #a8cdb9;
             font-weight: 600;
             line-height: 1.35;
         }
 
         .login-coop-location {
-            font-size: 10px;
-            color: #7d9e8d;
-            margin-top: 2px;
+            font-size: 11px;
+            color: #8bb29e;
+            margin-top: 3px;
         }
 
         .login-form-panel {
             flex-grow: 1;
-            padding: 36px 36px;
+            padding: 40px 40px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -166,17 +167,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .login-form-title {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 800;
-            color: var(--text-heading, #12281e);
+            color: var(--text-heading, #0a1c13);
             margin: 0;
         }
 
         .login-form-subtitle {
-            font-size: 13px;
-            color: var(--text-muted, #6b7d73);
+            font-size: 14px;
+            color: var(--text-muted, #4a6254);
             margin-top: 4px;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
+            font-weight: 500;
         }
 
         .login-input-box {
@@ -184,16 +186,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             display: flex;
             align-items: center;
             background: #ffffff;
-            border: 1px solid #d5e0d7;
+            border: 1.5px solid #cbdcd0;
             border-radius: 8px;
-            padding: 0 12px;
-            margin-top: 4px;
+            padding: 0 14px;
+            margin-top: 5px;
             transition: all 0.2s ease;
+            min-height: 44px;
         }
 
         .login-input-box:focus-within {
             border-color: var(--primary-color, #143d2c);
-            box-shadow: 0 0 0 3px rgba(20, 61, 44, 0.1);
+            box-shadow: 0 0 0 3.5px rgba(20, 61, 44, 0.12);
         }
 
         .login-input-box input {
@@ -201,27 +204,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border: none;
             outline: none;
             background: transparent;
-            padding: 9px 0;
-            font-size: 13.5px;
-            color: #12281e;
+            padding: 10px 0;
+            font-size: 14.5px;
+            color: #0a1c13;
             font-family: inherit;
         }
 
         .login-input-box input::placeholder {
-            color: #9ca3af;
+            color: #8fa597;
         }
 
         @media (max-width: 768px) {
             .login-card-container {
                 flex-direction: column;
-                max-width: 440px;
+                max-width: 480px;
             }
             .login-brand-panel {
                 width: 100%;
-                padding: 24px;
+                padding: 28px 24px;
+            }
+            .login-brand-body {
+                margin: 16px 0;
             }
             .login-form-panel {
-                padding: 24px;
+                padding: 28px 20px;
+            }
+            .login-input-box input {
+                font-size: 16px;
             }
         }
     </style>

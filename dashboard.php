@@ -368,15 +368,23 @@ $displayName = htmlspecialchars($currentUser['username'] ?? 'admin', ENT_QUOTES,
 <aside class="sidebar-nav-panel">
 
     <div class="sidebar-brand-header">
-        <svg class="sidebar-brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-        </svg>
-        <div class="sidebar-brand-info">
-            <span class="brand-main-title">SCC<br>Soil Monitor</span>
-            <span class="brand-sub-title">Sto Cristo Concepcion Farmers Agriculture Cooperative</span>
-            <span class="brand-location">Concepcion, Tarlac, Philippines</span>
+        <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0;">
+            <svg class="sidebar-brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+            </svg>
+            <div class="sidebar-brand-info">
+                <span class="brand-main-title">SCC<br>Soil Monitor</span>
+                <span class="brand-sub-title">Sto Cristo Concepcion Farmers Agriculture Cooperative</span>
+                <span class="brand-location">Concepcion, Tarlac, Philippines</span>
+            </div>
         </div>
+        <button type="button" class="sidebar-close-btn" onclick="toggleMobileSidebar()" aria-label="Close navigation">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
     </div>
 
     <ul class="sidebar-menu-links">
@@ -511,9 +519,9 @@ $displayName = htmlspecialchars($currentUser['username'] ?? 'admin', ENT_QUOTES,
 
     <!-- TOP HEADER -->
     <header class="dashboard-canvas-header">
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="header-title-container">
             <button type="button" class="mobile-nav-toggle-btn" onclick="toggleMobileSidebar()" aria-label="Toggle navigation">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="3" y1="12" x2="21" y2="12"/>
                     <line x1="3" y1="6" x2="21" y2="6"/>
                     <line x1="3" y1="18" x2="21" y2="18"/>
