@@ -74,13 +74,11 @@ function get_assigned_device_for_user($conn, $userId) {
             $deviceUid = trim($row['device_uid']);
             $aliases = [$deviceUid, $nodeName];
 
-            // Unify Node 1 and ESP32_GSM_01
-            if (strcasecmp($nodeName, 'Node 1') === 0 || strcasecmp($deviceUid, 'ESP32_GSM_01') === 0 || stripos($nodeName, 'node 1') !== false) {
-                $aliases[] = 'ESP32_GSM_01';
-                $aliases[] = 'Node 1';
-                $aliases[] = 'NODE 1';
-                $aliases[] = 'NODE-01';
-                $aliases[] = 'node 1';
+            // Unify Node 1 and ESP32_GSM_01 (handling all spacing/hyphen/casing variations)
+            $normNode = strtolower(str_replace([' ', '-', '_'], '', $nodeName));
+            $normUid = strtolower(str_replace([' ', '-', '_'], '', $deviceUid));
+            if ($normNode === 'node1' || $normNode === 'node01' || $normUid === 'esp32gsm01' || $normUid === 'node1') {
+                $aliases = ['ESP32_GSM_01', 'ESP32_DEFAULT', 'Node 1', 'node1', 'Node-01', 'node-01', 'node_1', 'NODE 1', 'NODE-01', 'node 1'];
             }
 
             return [
@@ -107,6 +105,7 @@ function get_assigned_device_for_user($conn, $userId) {
         $lbl = $stmt->fetchColumn();
         if ($lbl && trim((string)$lbl) !== '') {
             $lbl = trim((string)$lbl);
+            $normLbl = strtolower(str_replace([' ', '-', '_'], '', $lbl));
 
             // Check if label matches any registered node in devices table
             $dStmt = $conn->prepare("SELECT id, node_name, device_uid, location FROM devices WHERE device_uid = ? OR node_name = ? LIMIT 1");
@@ -116,11 +115,10 @@ function get_assigned_device_for_user($conn, $userId) {
                 $nodeName = trim($dRow['node_name']);
                 $deviceUid = trim($dRow['device_uid']);
                 $aliases = [$deviceUid, $nodeName];
-                if (strcasecmp($nodeName, 'Node 1') === 0 || strcasecmp($deviceUid, 'ESP32_GSM_01') === 0) {
-                    $aliases[] = 'ESP32_GSM_01';
-                    $aliases[] = 'Node 1';
-                    $aliases[] = 'NODE 1';
-                    $aliases[] = 'NODE-01';
+                $normNode = strtolower(str_replace([' ', '-', '_'], '', $nodeName));
+                $normUid = strtolower(str_replace([' ', '-', '_'], '', $deviceUid));
+                if ($normNode === 'node1' || $normNode === 'node01' || $normUid === 'esp32gsm01' || $normUid === 'node1') {
+                    $aliases = ['ESP32_GSM_01', 'ESP32_DEFAULT', 'Node 1', 'node1', 'Node-01', 'node-01', 'node_1', 'NODE 1', 'NODE-01', 'node 1'];
                 }
                 return [
                     'node_id' => (int)$dRow['id'],
@@ -136,13 +134,10 @@ function get_assigned_device_for_user($conn, $userId) {
             $deviceUid = $lbl;
             $aliases = [$lbl];
 
-            if (strcasecmp($lbl, 'ESP32_GSM_01') === 0 || strcasecmp($lbl, 'Node 1') === 0 || stripos($lbl, 'node 1') !== false) {
+            if ($normLbl === 'node1' || $normLbl === 'node01' || $normLbl === 'esp32gsm01' || $normLbl === 'esp32default' || str_contains($normLbl, 'node1')) {
                 $nodeName = 'Node 1';
                 $deviceUid = 'ESP32_GSM_01';
-                $aliases[] = 'ESP32_GSM_01';
-                $aliases[] = 'Node 1';
-                $aliases[] = 'NODE 1';
-                $aliases[] = 'NODE-01';
+                $aliases = ['ESP32_GSM_01', 'ESP32_DEFAULT', 'Node 1', 'node1', 'Node-01', 'node-01', 'node_1', 'NODE 1', 'NODE-01', 'node 1'];
             }
 
             return [

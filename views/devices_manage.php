@@ -452,7 +452,19 @@ try {
                         <?php foreach ($farmer_mappings as $row): ?>
                             <?php 
                                 $hasNode = !empty($row['node_name']) || !empty($row['legacy_label']);
-                                $displayNode = $row['node_name'] ? ($row['node_name'] . ' (' . $row['device_uid'] . ')') : ($row['legacy_label'] ?: 'No Node Configured');
+                                if ($row['node_name']) {
+                                    $displayNode = $row['node_name'] . ' (' . $row['device_uid'] . ')';
+                                } elseif (!empty($row['legacy_label'])) {
+                                    $lbl = $row['legacy_label'];
+                                    $norm = strtolower(str_replace([' ', '-', '_'], '', $lbl));
+                                    if ($norm === 'node1' || $norm === 'node01' || $norm === 'esp32gsm01') {
+                                        $displayNode = 'Node 1 (ESP32_GSM_01)';
+                                    } else {
+                                        $displayNode = $lbl;
+                                    }
+                                } else {
+                                    $displayNode = 'No Node Configured';
+                                }
                             ?>
                             <tr>
                                 <td>
