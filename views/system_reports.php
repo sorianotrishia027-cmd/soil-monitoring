@@ -79,34 +79,34 @@ try {
     <!-- =========================================================
          1. 3 TOP STATS STRIP (Matches Screenshot)
          ========================================================= -->
-    <div class="overview-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px;">
+    <div class="overview-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 20px;">
         
         <!-- Total Transmissions -->
-        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
-            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+        <div class="stat-widget-card" style="min-height: 125px; padding: 22px 24px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px;">
                 TOTAL TRANSMISSIONS LOGGED
             </div>
-            <div style="font-size: 30px; font-weight: 800; color: #15803d; margin-top: 10px; line-height: 1;">
+            <div style="font-size: 38px; font-weight: 800; color: #15803d; margin-top: 10px; line-height: 1;">
                 <?= number_format($total_records) ?>
             </div>
         </div>
 
         <!-- Registered Farmer Fields -->
-        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
-            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+        <div class="stat-widget-card" style="min-height: 125px; padding: 22px 24px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px;">
                 REGISTERED FARMER FIELDS
             </div>
-            <div style="font-size: 30px; font-weight: 800; color: #2563eb; margin-top: 10px; line-height: 1;">
+            <div style="font-size: 38px; font-weight: 800; color: #2563eb; margin-top: 10px; line-height: 1;">
                 <?= number_format($total_farmers) ?>
             </div>
         </div>
 
         <!-- Critical Stress Alerts -->
-        <div class="stat-widget-card" style="min-height: 110px; padding: 18px 22px;">
-            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+        <div class="stat-widget-card" style="min-height: 125px; padding: 22px 24px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px;">
                 CRITICAL STRESS ALERTS
             </div>
-            <div style="font-size: 30px; font-weight: 800; color: #b91c1c; margin-top: 10px; line-height: 1;">
+            <div style="font-size: 38px; font-weight: 800; color: #b91c1c; margin-top: 10px; line-height: 1;">
                 <?= number_format($critical_incidents) ?>
             </div>
         </div>
@@ -120,49 +120,49 @@ try {
         
         <!-- System-Wide Soil Benchmarks Card -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
                 <span>📈</span> System-Wide Soil Benchmarks
             </h3>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 
                 <!-- AVG MOISTURE -->
-                <div style="background: #f4f8f5; border-left: 3px solid #16a34a; padding: 12px 14px; border-radius: 0 8px 8px 0;">
-                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                <div style="background: #f4f8f5; border-left: 4px solid #16a34a; padding: 14px 16px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 12.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
                         AVG MOISTURE
                     </div>
-                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                    <div style="font-size: 24px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
                         <?= number_format($averages['avg_moisture'] ?? 48.6, 1) ?>%
                     </div>
                 </div>
 
                 <!-- AVG SOIL pH -->
-                <div style="background: #f4f8f5; border-left: 3px solid #84cc16; padding: 12px 14px; border-radius: 0 8px 8px 0;">
-                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                <div style="background: #f4f8f5; border-left: 4px solid #84cc16; padding: 14px 16px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 12.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
                         AVG SOIL pH
                     </div>
-                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                    <div style="font-size: 24px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
                         <?= number_format($averages['avg_ph'] ?? 6.07, 2) ?>
                     </div>
                 </div>
 
                 <!-- AVG TEMPERATURE -->
-                <div style="background: #f4f8f5; border-left: 3px solid #f59e0b; padding: 12px 14px; border-radius: 0 8px 8px 0;">
-                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                <div style="background: #f4f8f5; border-left: 4px solid #f59e0b; padding: 14px 16px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 12.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
                         AVG TEMPERATURE
                     </div>
-                    <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
+                    <div style="font-size: 24px; font-weight: 800; color: var(--text-heading); margin-top: 4px;">
                         <?= number_format($averages['avg_temp'] ?? 29.0, 1) ?>°C
                     </div>
                 </div>
 
                 <!-- MEAN N-P-K MATRIX -->
-                <div style="background: #f4f8f5; border-left: 3px solid #06b6d4; padding: 12px 14px; border-radius: 0 8px 8px 0;">
-                    <div style="font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;">
+                <div style="background: #f4f8f5; border-left: 4px solid #06b6d4; padding: 14px 16px; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 12.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
                         MEAN N-P-K MATRIX
                     </div>
-                    <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-top: 6px;">
-                        <?= number_format($averages['avg_n'] ?? 37, 0) ?> · <?= number_format($averages['avg_p'] ?? 22, 0) ?> · <?= number_format($averages['avg_k'] ?? 47, 0) ?> <span style="font-size: 11px; font-weight: 500; color: #6b7280;">mg/kg</span>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-heading); margin-top: 6px;">
+                        <?= number_format($averages['avg_n'] ?? 37, 0) ?> · <?= number_format($averages['avg_p'] ?? 22, 0) ?> · <?= number_format($averages['avg_k'] ?? 47, 0) ?> <span style="font-size: 13.5px; font-weight: 700; color: var(--text-muted);">mg/kg</span>
                     </div>
                 </div>
 
@@ -172,15 +172,15 @@ try {
         <!-- Export Options Card -->
         <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;">
+                <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 14px;">
                     Export Options
                 </h3>
-                <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-muted);">
+                <p style="font-size: 15.5px; line-height: 1.65; color: var(--text-body); font-weight: 500;">
                     Use the browser printing integration shortcut button below to showcase clean, structured agricultural summary report assets to your thesis review committee.
                 </p>
             </div>
 
-            <button onclick="window.print();" class="btn-primary" style="margin-top: 18px; padding: 12px;">
+            <button onclick="window.print();" class="btn-primary" style="margin-top: 20px; padding: 14px;">
                 <span>🖨️</span> Print System Audit Summary
             </button>
         </div>

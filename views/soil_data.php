@@ -227,29 +227,22 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
          1. TOP HEADER & TELEMETRY SUMMARY (Matches Image 4)
          ========================================================= -->
     <div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
             <div>
-                <h3 style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin: 0;">My Soil Telemetry & Analysis</h3>
-                <p style="font-size: 13.5px; color: var(--text-muted); margin-top: 3px;">Recorded soil measurements and field history.</p>
+                <h3 style="font-size: 24px; font-weight: 800; color: var(--text-heading); margin: 0;">My Soil Telemetry & Analysis</h3>
+                <p style="font-size: 16px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">Recorded soil measurements and field history.</p>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted); background: #ffffff; border: 1px solid #d5e0d7; padding: 4px 10px; border-radius: 20px;">
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--text-muted); background: #ffffff; border: 1.5px solid #b8cebf; padding: 6px 14px; border-radius: 20px;">
                 Updates every 15 seconds
             </span>
         </div>
         
-        <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+        <div style="font-size: 15px; font-weight: 700; color: var(--text-muted); margin-bottom: 16px;">
             Last reading: <?= $readingFormatted ?><?= $outdatedText ?>
         </div>
 
         <!-- Warning banner -->
-        <div class="warning-alert-banner">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span>NPK hardware verification unavailable</span>
-        </div>
+       
     </div>
 
     <!-- =========================================================
@@ -283,7 +276,7 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
                 <span class="parameter-name">NITROGEN (N)</span>
                 <span class="badge-pill <?= $nBadge['class'] ?>"><?= $nBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= $valN !== null ? htmlspecialchars((string)round($valN)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
+            <div class="parameter-value-large"><?= $valN !== null ? htmlspecialchars((string)round($valN)) . ' <span style="font-size: 16px; font-weight: 700; color: var(--text-muted);">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 20 - 50</div>
         </div>
 
@@ -293,7 +286,7 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
                 <span class="parameter-name">PHOSPHORUS (P)</span>
                 <span class="badge-pill <?= $pBadge['class'] ?>"><?= $pBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= $valP !== null ? htmlspecialchars((string)round($valP)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
+            <div class="parameter-value-large"><?= $valP !== null ? htmlspecialchars((string)round($valP)) . ' <span style="font-size: 16px; font-weight: 700; color: var(--text-muted);">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 10 - 30</div>
         </div>
 
@@ -303,7 +296,7 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
                 <span class="parameter-name">POTASSIUM (K)</span>
                 <span class="badge-pill <?= $kBadge['class'] ?>"><?= $kBadge['label'] ?></span>
             </div>
-            <div class="parameter-value-large"><?= $valK !== null ? htmlspecialchars((string)round($valK)) . ' <span style="font-size: 14px; font-weight: 500; color: #6b7280;">mg/kg</span>' : '--' ?></div>
+            <div class="parameter-value-large"><?= $valK !== null ? htmlspecialchars((string)round($valK)) . ' <span style="font-size: 16px; font-weight: 700; color: var(--text-muted);">mg/kg</span>' : '--' ?></div>
             <div class="parameter-target-range">Target: 15 - 50</div>
         </div>
 
@@ -323,8 +316,8 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
          3. SOIL PARAMETER CRITERIA REFERENCE (Matches Image 4)
          ========================================================= -->
     <div class="card-panel">
-        <div class="card-title" style="font-size: 16px;">Soil Parameter Criteria Reference</div>
-        <div class="card-subtitle" style="margin-bottom: 16px;">Color legend: Red (Critical/Low), Green (Optimal), Orange (High/Excess).</div>
+        <div class="card-title">Soil Parameter Criteria Reference</div>
+        <div class="card-subtitle" style="margin-bottom: 18px;">Color legend: Red (Critical/Low), Green (Optimal), Orange (High/Excess).</div>
 
         <div class="criteria-columns-grid">
             <!-- Soil Moisture -->
@@ -457,9 +450,9 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
 
         <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
-            <div style="display: flex; justify-content: center; gap: 6px; padding: 16px; border-top: 1px solid #f0f4f1;">
+            <div style="display: flex; justify-content: center; gap: 8px; padding: 18px; border-top: 1px solid #e1eee5;">
                 <?php if ($page > 1): ?>
-                    <a href="dashboard.php?page=soil&history_page=<?= $page - 1 ?>" class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Previous</a>
+                    <a href="dashboard.php?page=soil&history_page=<?= $page - 1 ?>" class="btn-outline" style="padding: 8px 16px; font-size: 14.5px; font-weight: 700;">Previous</a>
                 <?php endif; ?>
 
                 <?php 
@@ -467,13 +460,13 @@ $outdatedText = $has_data ? (($timeDiff > 600) ? ' Â· Over 10 minutes old' : ' Â
                 $end = min($totalPages, $page + 2);
                 for ($p = $start; $p <= $end; $p++): 
                 ?>
-                    <a href="dashboard.php?page=soil&history_page=<?= $p ?>" class="<?= $p === $page ? 'btn-primary' : 'btn-outline' ?>" style="width: auto; padding: 6px 12px; font-size: 12px; <?= $p === $page ? 'background:var(--primary-color);color:#fff;' : '' ?>">
+                    <a href="dashboard.php?page=soil&history_page=<?= $p ?>" class="<?= $p === $page ? 'btn-primary' : 'btn-outline' ?>" style="width: auto; padding: 8px 16px; font-size: 14.5px; font-weight: 800; <?= $p === $page ? 'background:var(--primary-color);color:#fff;' : '' ?>">
                         <?= $p ?>
                     </a>
                 <?php endfor; ?>
 
                 <?php if ($page < $totalPages): ?>
-                    <a href="dashboard.php?page=soil&history_page=<?= $page + 1 ?>" class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Next</a>
+                    <a href="dashboard.php?page=soil&history_page=<?= $page + 1 ?>" class="btn-outline" style="padding: 8px 16px; font-size: 14.5px; font-weight: 700;">Next</a>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

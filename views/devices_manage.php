@@ -189,8 +189,8 @@ try {
         
         <!-- CARD 1: ADD / REGISTER NEW NODE (1 TEXTFIELD) -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="12" y1="8" x2="12" y2="16"></line>
                     <line x1="8" y1="12" x2="16" y2="12"></line>
@@ -206,13 +206,13 @@ try {
                     <div class="input-field-wrapper">
                         <input type="text" name="node_name" placeholder="e.g., Node 2 or ESP32_GSM_02" required>
                     </div>
-                    <small style="color: var(--text-subtle); font-size: 11.5px; margin-top: 6px; display:block;">
+                    <small style="color: var(--text-subtle); font-size: 13.5px; font-weight: 600; margin-top: 8px; display:block;">
                         * Enter a node name or hardware UID to register it into the system inventory.
                     </small>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top: 14px;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button type="submit" class="btn-primary" style="margin-top: 16px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
                     Register Node
@@ -222,8 +222,8 @@ try {
 
         <!-- CARD 2: BIND / ASSIGN NODE TO FARMER (DROPDOWN) -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
@@ -297,15 +297,15 @@ try {
                     </div>
                 </div>
 
-                <div class="directive-highlight-box" style="margin-top: 14px; margin-bottom: 14px;">
+                <div class="directive-highlight-box" style="margin-top: 16px; margin-bottom: 16px;">
                     <div class="directive-muted-tag">HARDWARE ARCHITECTURE</div>
-                    <div class="directive-metric-val" style="font-size: 12px; line-height: 1.4;">
+                    <div class="directive-metric-val" style="font-size: 14.5px; line-height: 1.5;">
                         <strong>Node 1</strong> and <strong>ESP32_GSM_01</strong> are automatically unified for seamless real-time telemetry streaming.
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top: 8px;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                     </svg>

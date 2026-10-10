@@ -217,15 +217,15 @@ if ($has_data && isset($latest['created_at'])) {
     <div class="overview-stats-grid">
         
         <!-- Soil Moisture -->
-        <div class="stat-widget-card" style="border-top: 3px solid <?= $m_status['color'] ?>;">
+        <div class="stat-widget-card" style="border-top: 4px solid <?= $m_status['color'] ?>;">
             <div class="stat-widget-top">
                 <div class="stat-icon-label">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $m_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $m_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                     </svg>
                     <span>Soil moisture</span>
                 </div>
-                <span class="badge-pill <?= $m_status['class'] ?>" style="font-size: 10.5px; padding: 2px 8px;">
+                <span class="badge-pill <?= $m_status['class'] ?>">
                     <?= $m_status['label'] ?>
                 </span>
             </div>
@@ -236,16 +236,16 @@ if ($has_data && isset($latest['created_at'])) {
         </div>
 
         <!-- Soil pH -->
-        <div class="stat-widget-card" style="border-top: 3px solid <?= $ph_status['color'] ?>;">
+        <div class="stat-widget-card" style="border-top: 4px solid <?= $ph_status['color'] ?>;">
             <div class="stat-widget-top">
                 <div class="stat-icon-label">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $ph_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $ph_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
                         <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
                     </svg>
                     <span>Soil pH</span>
                 </div>
-                <span class="badge-pill <?= $ph_status['class'] ?>" style="font-size: 10.5px; padding: 2px 8px;">
+                <span class="badge-pill <?= $ph_status['class'] ?>">
                     <?= $ph_status['label'] ?>
                 </span>
             </div>
@@ -256,15 +256,15 @@ if ($has_data && isset($latest['created_at'])) {
         </div>
 
         <!-- Soil Temperature -->
-        <div class="stat-widget-card" style="border-top: 3px solid <?= $t_status['color'] ?>;">
+        <div class="stat-widget-card" style="border-top: 4px solid <?= $t_status['color'] ?>;">
             <div class="stat-widget-top">
                 <div class="stat-icon-label">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $t_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $t_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
                     </svg>
                     <span>Soil temperature</span>
                 </div>
-                <span class="badge-pill <?= $t_status['class'] ?>" style="font-size: 10.5px; padding: 2px 8px;">
+                <span class="badge-pill <?= $t_status['class'] ?>">
                     <?= $t_status['label'] ?>
                 </span>
             </div>
@@ -275,16 +275,16 @@ if ($has_data && isset($latest['created_at'])) {
         </div>
 
         <!-- Last Reading -->
-        <div class="stat-widget-card" style="border-top: 3px solid <?= !$has_data ? '#9ca3af' : ($is_outdated ? '#f59e0b' : '#16a34a') ?>;">
+        <div class="stat-widget-card" style="border-top: 4px solid <?= !$has_data ? '#9ca3af' : ($is_outdated ? '#f59e0b' : '#16a34a') ?>;">
             <div class="stat-widget-top">
                 <div class="stat-icon-label">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/>
                         <polyline points="12 6 12 12 16 14"/>
                     </svg>
                     <span>Last reading</span>
                 </div>
-                <span class="badge-pill <?= !$has_data ? 'neutral' : ($is_outdated ? 'warning' : 'optimal') ?>" style="font-size: 10.5px; padding: 2px 8px;">
+                <span class="badge-pill <?= !$has_data ? 'neutral' : ($is_outdated ? 'warning' : 'optimal') ?>">
                     <?= !$has_data ? 'No Data' : ($is_outdated ? 'Outdated' : 'Live') ?>
                 </span>
             </div>
@@ -322,60 +322,60 @@ if ($has_data && isset($latest['created_at'])) {
         <div class="nutrients-columns-grid">
             
             <!-- Nitrogen -->
-            <div class="nutrient-col-item" style="border-left: 3px solid <?= $n_status['color'] ?>; padding-left: 14px;">
-                <div class="nutrient-col-header" style="justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $n_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="nutrient-col-item" style="border-left: 4px solid <?= $n_status['color'] ?>;">
+                <div class="nutrient-col-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $n_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 22v-9"/>
                             <path d="M12 13a5 5 0 0 0-5-5H3a9 9 0 0 0 9 9Z"/>
                         </svg>
                         <span>Nitrogen (N)</span>
                     </div>
-                    <span class="badge-pill <?= $n_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $n_status['label'] ?></span>
+                    <span class="badge-pill <?= $n_status['class'] ?>"><?= $n_status['label'] ?></span>
                 </div>
-                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= $n_raw !== null ? htmlspecialchars((string)round($n_raw)) : '--' ?></span>
-                    <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+                    <span class="nutrient-big-num"><?= $n_raw !== null ? htmlspecialchars((string)round($n_raw)) : '--' ?></span>
+                    <span class="nutrient-unit">mg/kg</span>
                 </div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 20 – 50 mg/kg</div>
+                <div style="font-size: 14.5px; font-weight: 700; color: var(--text-muted); margin-top: 4px;">Target: 20 – 50 mg/kg</div>
             </div>
 
             <!-- Phosphorus -->
-            <div class="nutrient-col-item" style="border-left: 3px solid <?= $p_status['color'] ?>; padding-left: 14px;">
-                <div class="nutrient-col-header" style="justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $p_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="nutrient-col-item" style="border-left: 4px solid <?= $p_status['color'] ?>;">
+                <div class="nutrient-col-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $p_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3"/>
                             <circle cx="19" cy="6" r="2"/>
                             <circle cx="5" cy="6" r="2"/>
                         </svg>
                         <span>Phosphorus (P)</span>
                     </div>
-                    <span class="badge-pill <?= $p_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $p_status['label'] ?></span>
+                    <span class="badge-pill <?= $p_status['class'] ?>"><?= $p_status['label'] ?></span>
                 </div>
-                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= $p_raw !== null ? htmlspecialchars((string)round($p_raw)) : '--' ?></span>
-                    <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+                    <span class="nutrient-big-num"><?= $p_raw !== null ? htmlspecialchars((string)round($p_raw)) : '--' ?></span>
+                    <span class="nutrient-unit">mg/kg</span>
                 </div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 10 – 30 mg/kg</div>
+                <div style="font-size: 14.5px; font-weight: 700; color: var(--text-muted); margin-top: 4px;">Target: 10 – 30 mg/kg</div>
             </div>
 
             <!-- Potassium -->
-            <div class="nutrient-col-item" style="border-left: 3px solid <?= $k_status['color'] ?>; padding-left: 14px;">
-                <div class="nutrient-col-header" style="justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="<?= $k_status['color'] ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="nutrient-col-item" style="border-left: 4px solid <?= $k_status['color'] ?>;">
+                <div class="nutrient-col-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="<?= $k_status['color'] ?>" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
                         </svg>
                         <span>Potassium (K)</span>
                     </div>
-                    <span class="badge-pill <?= $k_status['class'] ?>" style="font-size: 10px; padding: 2px 6px;"><?= $k_status['label'] ?></span>
+                    <span class="badge-pill <?= $k_status['class'] ?>"><?= $k_status['label'] ?></span>
                 </div>
-                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;">
-                    <span class="nutrient-big-num" style="margin-left:0;"><?= $k_raw !== null ? htmlspecialchars((string)round($k_raw)) : '--' ?></span>
-                    <span class="nutrient-unit" style="margin-left:0;">mg/kg</span>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+                    <span class="nutrient-big-num"><?= $k_raw !== null ? htmlspecialchars((string)round($k_raw)) : '--' ?></span>
+                    <span class="nutrient-unit">mg/kg</span>
                 </div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Target: 15 – 50 mg/kg</div>
+                <div style="font-size: 14.5px; font-weight: 700; color: var(--text-muted); margin-top: 4px;">Target: 15 – 50 mg/kg</div>
             </div>
 
         </div>
@@ -423,7 +423,7 @@ if ($has_data && isset($latest['created_at'])) {
                 </div>
             </div>
 
-            <div style="font-size: 12px; color: var(--text-muted);">
+            <div style="font-size: 14.5px; font-weight: 600; color: var(--text-muted);">
                 Reference ranges: moisture 20-80%; pH 5.5-7.5.
             </div>
         </div>
@@ -431,7 +431,7 @@ if ($has_data && isset($latest['created_at'])) {
         <!-- Monitoring Node Card -->
         <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div class="card-title">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="2" width="20" height="8" rx="2"/>
                     <rect x="2" y="14" width="20" height="8" rx="2"/>
                     <line x1="6" y1="6" x2="6.01" y2="6"/>
@@ -442,7 +442,7 @@ if ($has_data && isset($latest['created_at'])) {
 
             <div class="node-center-info">
                 <div class="node-icon-circle">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
                         <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
                         <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
@@ -463,7 +463,7 @@ if ($has_data && isset($latest['created_at'])) {
                 <?php endif; ?>
             </div>
 
-            <div style="font-size: 12px; color: var(--text-muted); text-align: center;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-muted); text-align: center;">
                 <?= $has_data ? 'Node synchronization active via GSM telemetry.' : 'No telemetry hardware currently streaming to this profile.' ?>
             </div>
         </div>
@@ -477,7 +477,7 @@ if ($has_data && isset($latest['created_at'])) {
         <div class="card-header-bar">
             <div>
                 <div class="card-title">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="20" x2="18" y2="10"/>
                         <line x1="12" y1="20" x2="12" y2="4"/>
                         <line x1="6" y1="20" x2="6" y2="14"/>
@@ -486,7 +486,7 @@ if ($has_data && isset($latest['created_at'])) {
                 </div>
                 <div class="card-subtitle">The latest 20 recorded readings across reporting nodes (Soil conditions & NPK telemetry).</div>
             </div>
-            <div style="font-size: 12px; color: var(--text-muted);">
+            <div style="font-size: 14px; font-weight: 700; color: var(--text-muted);">
                 Refreshes every 15 seconds
             </div>
         </div>
@@ -495,71 +495,71 @@ if ($has_data && isset($latest['created_at'])) {
         <div class="trends-charts-row" style="margin-top: 15px;">
             
             <!-- Moisture Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>Moisture trend</span>
-                    <span style="color:#6b7280; font-weight:500;">%</span>
+                    <span style="color:var(--text-muted); font-weight:700;">%</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homeMoistureChart"></canvas>
                 </div>
             </div>
 
             <!-- pH Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>pH trend</span>
-                    <span style="color:#6b7280; font-weight:500;">pH</span>
+                    <span style="color:var(--text-muted); font-weight:700;">pH</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homePhChart"></canvas>
                 </div>
             </div>
 
             <!-- Temperature Trend -->
-            <div class="trend-card-span-mobile" style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div class="trend-card-span-mobile" style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>Temperature trend</span>
-                    <span style="color:#6b7280; font-weight:500;">°C</span>
+                    <span style="color:var(--text-muted); font-weight:700;">°C</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homeTempChart"></canvas>
                 </div>
             </div>
         </div>
 
         <!-- Soil NPK Nutrients Trends (Row 2) -->
-        <div class="trends-charts-row" style="margin-top: 16px;">
+        <div class="trends-charts-row" style="margin-top: 18px;">
             
             <!-- Nitrogen (N) Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>Nitrogen (N) trend</span>
-                    <span style="color:#6b7280; font-weight:500;">mg/kg</span>
+                    <span style="color:var(--text-muted); font-weight:700;">mg/kg</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homeNitrogenChart"></canvas>
                 </div>
             </div>
 
             <!-- Phosphorus (P) Trend -->
-            <div style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>Phosphorus (P) trend</span>
-                    <span style="color:#6b7280; font-weight:500;">mg/kg</span>
+                    <span style="color:var(--text-muted); font-weight:700;">mg/kg</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homePhosphorusChart"></canvas>
                 </div>
             </div>
 
             <!-- Potassium (K) Trend -->
-            <div class="trend-card-span-mobile" style="background:#fafdfb; border: 1px solid #e1e9e3; border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12.5px; font-weight: 700; color: var(--text-heading); margin-bottom: 8px; display:flex; justify-content:space-between;">
+            <div class="trend-card-span-mobile" style="background:#fbfdfc; border: 1.5px solid #d4e2d8; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 15px; font-weight: 800; color: var(--text-heading); margin-bottom: 10px; display:flex; justify-content:space-between;">
                     <span>Potassium (K) trend</span>
-                    <span style="color:#6b7280; font-weight:500;">mg/kg</span>
+                    <span style="color:var(--text-muted); font-weight:700;">mg/kg</span>
                 </div>
-                <div style="height: 130px; position: relative;">
+                <div style="height: 140px; position: relative;">
                     <canvas id="homePotassiumChart"></canvas>
                 </div>
             </div>

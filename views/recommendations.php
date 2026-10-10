@@ -135,55 +135,55 @@ if ($has_data) {
 
     <!-- Parameter Quick Overview Strip -->
     <div class="overview-stats-grid">
-        <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Moisture</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $moisture !== null ? number_format($moisture, 1) . '%' : '--' ?></div>
+        <div class="stat-widget-card" style="min-height: auto; padding: 20px;">
+            <span style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Moisture</span>
+            <div style="font-size: 28px; font-weight: 800; color: var(--text-heading); margin-top: 6px;"><?= $moisture !== null ? number_format($moisture, 1) . '%' : '--' ?></div>
         </div>
-        <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">pH Level</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $ph !== null ? number_format($ph, 1) : '--' ?></div>
+        <div class="stat-widget-card" style="min-height: auto; padding: 20px;">
+            <span style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">pH Level</span>
+            <div style="font-size: 28px; font-weight: 800; color: var(--text-heading); margin-top: 6px;"><?= $ph !== null ? number_format($ph, 1) : '--' ?></div>
         </div>
-        <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">NPK Ratio</span>
-            <div style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= ($n !== null && $p !== null && $k !== null) ? ((int)$n . '-' . (int)$p . '-' . (int)$k) : '--' ?></div>
+        <div class="stat-widget-card" style="min-height: auto; padding: 20px;">
+            <span style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">NPK Ratio</span>
+            <div style="font-size: 26px; font-weight: 800; color: var(--text-heading); margin-top: 6px;"><?= ($n !== null && $p !== null && $k !== null) ? ((int)$n . '-' . (int)$p . '-' . (int)$k) : '--' ?></div>
         </div>
-        <div class="stat-widget-card" style="min-height: auto; padding: 16px;">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Temperature</span>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-heading); margin-top: 4px;"><?= $temp !== null ? number_format($temp, 1) . '°C' : '--' ?></div>
+        <div class="stat-widget-card" style="min-height: auto; padding: 20px;">
+            <span style="font-size: 13.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Temperature</span>
+            <div style="font-size: 28px; font-weight: 800; color: var(--text-heading); margin-top: 6px;"><?= $temp !== null ? number_format($temp, 1) . '°C' : '--' ?></div>
         </div>
     </div>
 
     <!-- Recommendations Cards List -->
-    <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
         <?php if ($has_data && !empty($recommendations)): ?>
             <?php foreach ($recommendations as $rec): ?>
-                <div class="card-panel" style="padding: 20px 24px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="card-panel" style="padding: 24px 26px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
                             <span class="badge-pill <?= $rec['badge'] ?>">
                                 <?= htmlspecialchars($rec['category']) ?>
                             </span>
-                            <h4 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin: 0;">
+                            <h4 style="font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0;">
                                 <?= htmlspecialchars($rec['title']) ?>
                             </h4>
                         </div>
                     </div>
-                    <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-body); margin: 0;">
+                    <p style="font-size: 15.5px; line-height: 1.65; color: var(--text-body); margin: 0; font-weight: 500;">
                         <?= htmlspecialchars($rec['desc']) ?>
                     </p>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
-            <div class="card-panel" style="text-align: center; padding: 40px 20px;">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="card-panel" style="text-align: center; padding: 44px 24px;">
+                <div style="width: 54px; height: 54px; border-radius: 50%; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="12" y1="8" x2="12" y2="12"></line>
                         <line x1="12" y1="16" x2="12.01" y2="16"></line>
                     </svg>
                 </div>
-                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">No Active Node Telemetry</h3>
-                <p style="font-size: 13.5px; color: var(--text-muted); max-width: 480px; margin: 0 auto;">
+                <h3 style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-bottom: 8px;">No Active Node Telemetry</h3>
+                <p style="font-size: 15.5px; color: var(--text-muted); max-width: 500px; margin: 0 auto; font-weight: 600;">
                     No field monitoring node is currently linked to your account. Actionable fertilizer and crop guidance will automatically appear once a node is assigned.
                 </p>
             </div>

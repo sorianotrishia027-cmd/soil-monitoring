@@ -111,38 +111,38 @@ if ($user_id > 0) {
     </div>
 
     <?php if ($role === 'farmer' && empty($assignedAliases)): ?>
-        <div class="card-panel" style="text-align: center; padding: 40px 20px;">
-            <div style="width: 50px; height: 50px; border-radius: 50%; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="card-panel" style="text-align: center; padding: 44px 24px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="12" y1="8" x2="12" y2="12"/>
                     <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
             </div>
-            <h4 style="font-size: 17px; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">No Node Configured</h4>
-            <p style="font-size: 13.5px; color: var(--text-muted); max-width: 440px; margin: 0 auto;">No monitoring node is currently assigned to this farmer profile. Contact your cooperative administrator to link a field sensor node.</p>
+            <h4 style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-bottom: 8px;">No Node Configured</h4>
+            <p style="font-size: 15.5px; color: var(--text-muted); max-width: 480px; margin: 0 auto; font-weight: 600;">No monitoring node is currently assigned to this farmer profile. Contact your cooperative administrator to link a field sensor node.</p>
         </div>
     <?php elseif (empty($alerts)): ?>
-        <div class="card-panel" style="text-align: center; padding: 40px 20px;">
-            <div style="width: 50px; height: 50px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="card-panel" style="text-align: center; padding: 44px 24px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
             </div>
-            <h4 style="font-size: 17px; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">All Parameters Normal</h4>
-            <p style="font-size: 13.5px; color: var(--text-muted); max-width: 400px; margin: 0 auto;">No critical anomalies detected in recent telemetry. Your soil conditions are currently within target thresholds.</p>
+            <h4 style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin-bottom: 8px;">All Parameters Normal</h4>
+            <p style="font-size: 15.5px; color: var(--text-muted); max-width: 480px; margin: 0 auto; font-weight: 600;">No critical anomalies detected in recent telemetry. Your soil conditions are currently within target thresholds.</p>
         </div>
     <?php else: ?>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
             <?php foreach ($alerts as $item): ?>
-                <div class="card-panel" style="padding: 18px 20px; border-left: 4px solid <?= $item['type'] === 'critical' ? '#dc2626' : '#d97706' ?>;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                <div class="card-panel" style="padding: 22px 24px; border-left: 5px solid <?= $item['type'] === 'critical' ? '#dc2626' : '#d97706' ?>;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                         <span class="badge-pill <?= $item['type'] === 'critical' ? 'critical' : 'warning' ?>">
                             <?= htmlspecialchars($item['title']) ?>
                         </span>
-                        <span style="font-size: 12px; color: var(--text-muted);"><?= htmlspecialchars($item['time']) ?></span>
+                        <span style="font-size: 14px; font-weight: 700; color: var(--text-muted);"><?= htmlspecialchars($item['time']) ?></span>
                     </div>
-                    <p style="font-size: 13.5px; color: var(--text-body); margin: 0; font-weight: 500;">
+                    <p style="font-size: 16px; color: var(--text-body); margin: 0; font-weight: 600; line-height: 1.6;">
                         <?= htmlspecialchars($item['msg']) ?>
                     </p>
                 </div>

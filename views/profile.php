@@ -122,19 +122,19 @@ $initial = strtoupper(substr($display_name, 0, 1));
     <?php endif; ?>
 
     <!-- User Header Banner Card -->
-    <div class="card-panel" style="display: flex; align-items: center; gap: 20px; padding: 20px 24px;">
-        <div class="user-avatar-circle" style="width: 56px; height: 56px; font-size: 22px;">
+    <div class="card-panel" style="display: flex; align-items: center; gap: 22px; padding: 24px 28px;">
+        <div class="user-avatar-circle" style="width: 64px; height: 64px; font-size: 26px;">
             <?= $initial ?>
         </div>
         <div>
-            <h2 style="font-size: 20px; font-weight: 800; color: var(--text-heading); margin: 0; line-height: 1.2;">
+            <h2 style="font-size: 24px; font-weight: 800; color: var(--text-heading); margin: 0; line-height: 1.25;">
                 <?= htmlspecialchars($display_name) ?>
             </h2>
-            <div style="margin-top: 6px; display: flex; align-items: center; gap: 10px;">
-                <span class="badge-pill optimal" style="font-size: 11.5px;">
+            <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
+                <span class="badge-pill optimal">
                     <?= ucfirst(htmlspecialchars($user['role'] ?? 'Farmer')) ?>
                 </span>
-                <span style="font-size: 13px; color: var(--text-muted);">
+                <span style="font-size: 15px; font-weight: 600; color: var(--text-muted);">
                     @<?= htmlspecialchars($user['username'] ?? '') ?>
                 </span>
             </div>
@@ -146,7 +146,7 @@ $initial = strtoupper(substr($display_name, 0, 1));
         
         <!-- Profile Details Form -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px;">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px;">
                 Profile Details
             </h3>
 
@@ -181,7 +181,7 @@ $initial = strtoupper(substr($display_name, 0, 1));
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top: 8px;">
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">
                     Save Profile Changes
                 </button>
             </form>
@@ -189,7 +189,7 @@ $initial = strtoupper(substr($display_name, 0, 1));
 
         <!-- Password Change Form -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px;">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px;">
                 Security & Password
             </h3>
 
@@ -217,7 +217,11 @@ $initial = strtoupper(substr($display_name, 0, 1));
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top: 8px;">
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                    Update Security Password
+                </button>
+            </form>
+        </div>
                     Update Password
                 </button>
             </form>

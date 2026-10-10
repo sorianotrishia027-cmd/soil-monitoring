@@ -125,7 +125,7 @@ $totalUsersCount = count($users_list);
         
         <!-- Register New User Card -->
         <div class="card-panel">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 16px;">
+            <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 18px;">
                 Register New User
             </h3>
 
@@ -160,7 +160,7 @@ $totalUsersCount = count($users_list);
                     <div class="input-field-wrapper">
                         <input type="password" id="create-user-pass" name="password" placeholder="Create Password" required>
                         <button type="button" class="password-toggle-btn" onclick="togglePassVisibility('create-user-pass')">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
                             </svg>
@@ -169,14 +169,14 @@ $totalUsersCount = count($users_list);
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" style="font-size: 12px; color: var(--text-muted);">Assigned Portal Scope:</label>
+                    <label class="form-label">Assigned Portal Scope:</label>
                     <div class="radio-cards-container">
                         <label class="radio-card-label selected" id="scope-farmer-label" onclick="selectRoleRadio('farmer')">
-                            <input type="radio" name="role" value="farmer" checked style="accent-color: var(--primary-color);">
+                            <input type="radio" name="role" value="farmer" checked>
                             <span>Farmer</span>
                         </label>
                         <label class="radio-card-label" id="scope-admin-label" onclick="selectRoleRadio('admin')">
-                            <input type="radio" name="role" value="admin" style="accent-color: var(--primary-color);">
+                            <input type="radio" name="role" value="admin">
                             <span>Admin</span>
                         </label>
                     </div>
@@ -191,14 +191,14 @@ $totalUsersCount = count($users_list);
         <!-- Operational Directives Card -->
         <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;">
+                <h3 style="font-size: 19px; font-weight: 800; color: var(--text-heading); margin-bottom: 14px;">
                     Operational Directives
                 </h3>
-                <p style="font-size: 13.5px; line-height: 1.55; color: var(--text-muted); margin-bottom: 14px;">
+                <p style="font-size: 15.5px; line-height: 1.65; color: var(--text-body); margin-bottom: 16px; font-weight: 500;">
                     When updating user details or removing old profiles, double-check profiles to maintain accurate data mapping. Deleting a farmer's account completely cleans up their assigned entries from the historical system.
                 </p>
-                <p style="font-size: 13px; line-height: 1.5; color: var(--primary-color); font-weight: 600;">
-                    SMS Alerts: <span style="font-weight: 500; color: var(--text-body);">The contact number entered will receive critical soil alert SMS directly from the system.</span>
+                <p style="font-size: 15px; line-height: 1.6; color: var(--primary-color); font-weight: 700;">
+                    SMS Alerts: <span style="font-weight: 600; color: var(--text-body);">The contact number entered will receive critical soil alert SMS directly from the system.</span>
                 </p>
             </div>
 
@@ -216,7 +216,7 @@ $totalUsersCount = count($users_list);
     <div class="table-container-card">
         <div class="table-header-flex">
             <div>
-                <div class="card-title" style="font-size: 16px;">Registered Cooperative Profiles</div>
+                <div class="card-title">Registered Cooperative Profiles</div>
             </div>
         </div>
 
